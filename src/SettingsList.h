@@ -30,16 +30,16 @@ inline const std::vector<SettingInfo>& getSettingsList() {
           StrId::STR_REFRESH_FREQ, &CrossPointSettings::refreshFrequency,
           {StrId::STR_PAGES_1, StrId::STR_PAGES_5, StrId::STR_PAGES_10, StrId::STR_PAGES_15, StrId::STR_PAGES_30},
           "refreshFrequency", StrId::STR_CAT_DISPLAY),
-      SettingInfo::Enum(StrId::STR_UI_THEME, &CrossPointSettings::uiTheme,
-                        {StrId::STR_THEME_CLASSIC, StrId::STR_THEME_LYRA, StrId::STR_THEME_LYRA_EXTENDED}, "uiTheme",
-                        StrId::STR_CAT_DISPLAY),
+      SettingInfo::Enum(
+          StrId::STR_UI_THEME, &CrossPointSettings::uiTheme,
+          {StrId::STR_THEME_CLASSIC, StrId::STR_THEME_LYRA, StrId::STR_THEME_LYRA_EXTENDED, StrId::STR_THEME_MINDFUL},
+          "uiTheme", StrId::STR_CAT_DISPLAY),
       SettingInfo::Toggle(StrId::STR_SUNLIGHT_FADING_FIX, &CrossPointSettings::fadingFix, "fadingFix",
                           StrId::STR_CAT_DISPLAY),
 
       // --- Reader ---
       SettingInfo::Enum(StrId::STR_FONT_FAMILY, &CrossPointSettings::fontFamily,
-                        {StrId::STR_BOOKERLY, StrId::STR_NOTO_SANS}, "fontFamily",
-                        StrId::STR_CAT_READER),
+                        {StrId::STR_BOOKERLY, StrId::STR_NOTO_SANS}, "fontFamily", StrId::STR_CAT_READER),
       SettingInfo::Enum(StrId::STR_FONT_SIZE, &CrossPointSettings::fontSize,
                         {StrId::STR_SMALL, StrId::STR_MEDIUM, StrId::STR_LARGE, StrId::STR_X_LARGE}, "fontSize",
                         StrId::STR_CAT_READER),
@@ -82,10 +82,10 @@ inline const std::vector<SettingInfo>& getSettingsList() {
                           StrId::STR_CAT_SYSTEM),
       SettingInfo::Toggle(StrId::STR_SHOW_FREE_HEAP, &CrossPointSettings::showFreeHeap, "showFreeHeap",
                           StrId::STR_CAT_SYSTEM),
-      SettingInfo::Enum(StrId::STR_FILE_SORT, &CrossPointSettings::fileBrowserSort,
-                        {StrId::STR_SORT_NAME_ASC, StrId::STR_SORT_NAME_DESC, StrId::STR_SORT_SIZE_ASC,
-                         StrId::STR_SORT_SIZE_DESC},
-                        "fileBrowserSort", StrId::STR_CAT_SYSTEM),
+      SettingInfo::Enum(
+          StrId::STR_FILE_SORT, &CrossPointSettings::fileBrowserSort,
+          {StrId::STR_SORT_NAME_ASC, StrId::STR_SORT_NAME_DESC, StrId::STR_SORT_SIZE_ASC, StrId::STR_SORT_SIZE_DESC},
+          "fileBrowserSort", StrId::STR_CAT_SYSTEM),
 
       // --- KOReader Sync (web-only, uses KOReaderCredentialStore) ---
       SettingInfo::DynamicString(
@@ -142,10 +142,10 @@ inline const std::vector<SettingInfo>& getSettingsList() {
                         StrId::STR_CUSTOMISE_STATUS_BAR),
       SettingInfo::Toggle(StrId::STR_BATTERY, &CrossPointSettings::statusBarBattery, "statusBarBattery",
                           StrId::STR_CUSTOMISE_STATUS_BAR),
-      SettingInfo::Toggle(StrId::STR_TIME_ESTIMATE, &CrossPointSettings::statusBarTimeEstimate,
-                          "statusBarTimeEstimate", StrId::STR_CUSTOMISE_STATUS_BAR),
-      SettingInfo::Toggle(StrId::STR_SESSION_TIMER, &CrossPointSettings::statusBarSessionTimer,
-                          "statusBarSessionTimer", StrId::STR_CUSTOMISE_STATUS_BAR),
+      SettingInfo::Toggle(StrId::STR_TIME_ESTIMATE, &CrossPointSettings::statusBarTimeEstimate, "statusBarTimeEstimate",
+                          StrId::STR_CUSTOMISE_STATUS_BAR),
+      SettingInfo::Toggle(StrId::STR_SESSION_TIMER, &CrossPointSettings::statusBarSessionTimer, "statusBarSessionTimer",
+                          StrId::STR_CUSTOMISE_STATUS_BAR),
   };
   return list;
 }
