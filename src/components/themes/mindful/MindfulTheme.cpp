@@ -27,7 +27,7 @@ constexpr int maxListValueWidth = 200;
 constexpr int hPaddingInSelection = 8;
 constexpr int cornerRadius = 12;
 constexpr int mainMenuIconSize = 32;
-constexpr int listIconSize = 24;
+constexpr int listIconSize = 32;
 
 const uint8_t* iconForName(UIIcon icon, int size) {
   if (size == 24) {
@@ -68,6 +68,42 @@ const uint8_t* iconForName(UIIcon icon, int size) {
     }
   }
   return nullptr;
+}
+
+int computeIconVisualCenterYOffset(const uint8_t* bitmap, int size) {
+  if (bitmap == nullptr || size <= 0) {
+    return 0;
+  }
+
+  const int bytesPerRow = (size + 7) / 8;
+  int firstInkRow = size;
+  int lastInkRow = -1;
+
+  // Icon bitmaps are 1-bit row-major. Treat non-white bits as visible ink and
+  // center by visible bounds instead of raw canvas size.
+  for (int y = 0; y < size; y++) {
+    bool hasInk = false;
+    for (int x = 0; x < size; x++) {
+      const uint8_t rowByte = bitmap[y * bytesPerRow + x / 8];
+      const bool isWhite = ((rowByte >> (7 - (x % 8))) & 0x01u) != 0;
+      if (!isWhite) {
+        hasInk = true;
+        break;
+      }
+    }
+    if (hasInk) {
+      firstInkRow = std::min(firstInkRow, y);
+      lastInkRow = y;
+    }
+  }
+
+  if (lastInkRow < firstInkRow) {
+    return 0;
+  }
+
+  const int boxCenterTimes2 = size - 1;
+  const int inkCenterTimes2 = firstInkRow + lastInkRow;
+  return (boxCenterTimes2 - inkCenterTimes2) / 2;
 }
 }  // namespace
 
@@ -160,8 +196,12 @@ void MindfulTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCoun
   constexpr int contentPadding = 16;
   constexpr int subtitleGap = 2;
   constexpr int selectionBorderWidth = 2;
+  constexpr int dividerThickness = 2;
+  constexpr int dividerOnPixels = 1;
+  constexpr int dividerOffPixels = 3;
+  constexpr int dividerSelectedGap = 4;
 
-  const int titleLineHeight = renderer.getTextHeight(UI_12_FONT_ID);
+  const int titleLineHeight = renderer.getLineHeight(UI_12_FONT_ID);
   const int subtitleLineHeight = renderer.getLineHeight(SMALL_FONT_ID);
   const bool hasSubtitleColumn = (rowSubtitle != nullptr);
   const int minRowHeight = hasSubtitleColumn ? (contentPadding * 2 + titleLineHeight + subtitleGap + subtitleLineHeight)
@@ -205,9 +245,15 @@ void MindfulTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCoun
       renderer.drawRoundedRect(rowX, itemY, rowWidth, rowHeight, selectionBorderWidth, cornerRadius, true);
     }
 
+    std::string subtitleText = "";
+    if (rowSubtitle != nullptr) {
+      subtitleText = rowSubtitle(i);
+    }
+    const bool hasSubtitleText = hasSubtitleColumn && !subtitleText.empty();
+
     int contentX = rowX + contentPadding;
     int rowTextWidth = rowWidth - contentPadding * 2;
-    const int iconSize = hasSubtitleColumn ? mainMenuIconSize : listIconSize;
+    const int iconSize = hasSubtitleText ? mainMenuIconSize : listIconSize;
 
     // Draw name
     int valueWidth = 0;
@@ -215,8 +261,8 @@ void MindfulTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCoun
     std::string valueText = "";
     if (rowValue != nullptr) {
       valueText = rowValue(i);
-      valueText = renderer.truncatedText(UI_12_FONT_ID, valueText.c_str(), maxListValueWidth);
-      valueTextWidth = renderer.getTextWidth(UI_12_FONT_ID, valueText.c_str());
+      valueText = renderer.truncatedText(UI_10_FONT_ID, valueText.c_str(), maxListValueWidth);
+      valueTextWidth = renderer.getTextWidth(UI_10_FONT_ID, valueText.c_str());
       valueWidth = valueTextWidth + hPaddingInSelection;
       rowTextWidth -= valueWidth;
     }
@@ -226,45 +272,61 @@ void MindfulTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCoun
       contentX += iconSize + hPaddingInSelection;
     }
 
+    const int textBlockHeight = titleLineHeight + (hasSubtitleText ? (subtitleGap + subtitleLineHeight) : 0);
+    const int textTopY = itemY + std::max(0, (rowHeight - textBlockHeight) / 2);
+    const int titleY = textTopY;
+
     auto itemName = rowTitle(i);
     auto item = renderer.truncatedText(UI_12_FONT_ID, itemName.c_str(), rowTextWidth);
-    const int titleY = itemY + contentPadding;
     renderer.drawText(UI_12_FONT_ID, contentX, titleY, item.c_str(), true);
 
     if (rowIcon != nullptr) {
       UIIcon icon = rowIcon(i);
       const uint8_t* iconBitmap = iconForName(icon, iconSize);
       if (iconBitmap != nullptr) {
-        const int iconY = itemY + std::max(0, (rowHeight - iconSize) / 2);
+        int iconY = itemY + std::max(0, (rowHeight - iconSize) / 2);
+        if (!hasSubtitleText) {
+          iconY += computeIconVisualCenterYOffset(iconBitmap, iconSize);
+        }
         renderer.drawIcon(iconBitmap, rowX + contentPadding, iconY, iconSize, iconSize);
       }
     }
 
-    if (rowSubtitle != nullptr) {
-      std::string subtitleText = rowSubtitle(i);
-      if (!subtitleText.empty()) {
-        auto subtitle = renderer.truncatedText(SMALL_FONT_ID, subtitleText.c_str(), rowTextWidth);
-        renderer.drawText(SMALL_FONT_ID, contentX, titleY + titleLineHeight + subtitleGap, subtitle.c_str(), true);
-      }
+    if (hasSubtitleText) {
+      auto subtitle = renderer.truncatedText(SMALL_FONT_ID, subtitleText.c_str(), rowTextWidth);
+      renderer.drawText(SMALL_FONT_ID, contentX, titleY + titleLineHeight + subtitleGap, subtitle.c_str(), true);
     }
 
     // Draw value
     if (!valueText.empty()) {
+      const int valueLineHeight = renderer.getLineHeight(UI_10_FONT_ID);
+      const int valueX = rowX + rowWidth - contentPadding - valueWidth;
+      const int valueY = itemY + std::max(0, (rowHeight - valueLineHeight) / 2);
+      renderer.drawText(UI_10_FONT_ID, valueX, valueY, valueText.c_str(), true);
+
       if (isSelected && highlightValue) {
-        const int fillX = rowX + rowWidth - contentPadding - valueWidth;
-        const int fillY = itemY + contentPadding / 2;
-        const int fillW = valueWidth + hPaddingInSelection;
-        const int fillH = rowHeight - contentPadding;
-
-        renderer.fillRoundedRect(fillX, fillY, fillW, fillH, cornerRadius - 4, Color::LightGray);
-
-        const int centeredTextX = fillX + (fillW - valueTextWidth) / 2;
-        const int centeredTextY = fillY + (fillH - renderer.getLineHeight(UI_12_FONT_ID)) / 2;
-        renderer.drawText(UI_12_FONT_ID, centeredTextX, centeredTextY, valueText.c_str(), true);
-      } else {
-        renderer.drawText(UI_12_FONT_ID, rowX + rowWidth - contentPadding - valueWidth, titleY, valueText.c_str(),
-                          true);
+        constexpr int selectedValueUnderlineThickness = 3;
+        const int underlineY =
+            std::min(itemY + rowHeight - selectedValueUnderlineThickness, valueY + valueLineHeight + 1);
+        const int underlineEndX = valueX + std::max(0, valueTextWidth - 1);
+        renderer.drawLine(valueX, underlineY, underlineEndX, underlineY, selectedValueUnderlineThickness, true);
       }
+    }
+
+    const bool hasNextVisibleItem = (i + 1 < itemCount) && (i + 1 < pageStartIndex + pageItems);
+    if (hasNextVisibleItem) {
+      int dividerYStart = itemY + rowHeight - dividerThickness;
+      if (isSelected) {
+        // Keep divider visible below selected row with a small visual gap.
+        dividerYStart += dividerSelectedGap;
+      } else if (i + 1 == selectedIndex) {
+        // Keep divider visible above selected row with a small visual gap.
+        dividerYStart -= dividerSelectedGap;
+      }
+      const int dividerStartX = rowX;
+      const int dividerEndX = rowX + rowWidth;
+      renderer.drawPatternHLine(dividerStartX, dividerEndX, dividerYStart, dividerThickness, dividerOnPixels,
+                                dividerOffPixels, true);
     }
   }
 }

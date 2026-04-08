@@ -21,49 +21,49 @@
 const StrId SettingsActivity::categoryNames[categoryCount] = {StrId::STR_CAT_DISPLAY, StrId::STR_CAT_READER,
                                                               StrId::STR_CAT_CONTROLS, StrId::STR_CAT_SYSTEM};
 
-static const char* getSettingDescription(const SettingInfo& setting) {
+static StrId getSettingDescriptionId(const SettingInfo& setting) {
   if (setting.type == SettingType::ACTION) {
     switch (setting.action) {
       case SettingAction::CustomiseStatusBar:
-        return "Choose which progress indicators appear in the reader footer.";
+        return StrId::STR_SETTINGS_DESC_CUSTOMISE_STATUS_BAR;
       case SettingAction::RemapFrontButtons:
-        return "Assign each front hardware button to a reading action.";
+        return StrId::STR_SETTINGS_DESC_REMAP_FRONT_BUTTONS;
       case SettingAction::Network:
-        return "Scan, join, and forget WiFi networks stored on the device.";
+        return StrId::STR_SETTINGS_DESC_WIFI_NETWORKS;
       case SettingAction::Language:
-        return "Switch the device UI language.";
+        return StrId::STR_SETTINGS_DESC_LANGUAGE;
       default:
-        return nullptr;
+        return StrId::STR_NONE_OPT;
     }
   }
 
-  if (!setting.key) return nullptr;
-  if (strcmp(setting.key, "refreshFrequency") == 0) return "Full refresh every N pages. Lower values reduce ghosting.";
-  if (strcmp(setting.key, "fontFamily") == 0) return "Select the main typeface used in the reader.";
-  if (strcmp(setting.key, "fontSize") == 0) return "Adjust the base text size in the reader.";
-  if (strcmp(setting.key, "lineSpacing") == 0) return "Control the vertical spacing between text lines.";
-  if (strcmp(setting.key, "screenMargin") == 0) return "Adds extra inner margin around reader content.";
-  if (strcmp(setting.key, "paragraphAlignment") == 0) return "Choose paragraph alignment or use the book style.";
-  if (strcmp(setting.key, "embeddedStyle") == 0) return "Use the EPUB's embedded CSS for layout and styling.";
-  if (strcmp(setting.key, "hyphenationEnabled") == 0) return "Break long words at line endings.";
-  if (strcmp(setting.key, "orientation") == 0) return "Rotate the reading screen without changing the rest of the UI.";
-  if (strcmp(setting.key, "extraParagraphSpacing") == 0) return "Adds extra blank space between paragraphs.";
-  if (strcmp(setting.key, "textAntiAliasing") == 0) return "Smooth text edges using grayscale rendering.";
-  if (strcmp(setting.key, "imageRendering") == 0) return "Show images, placeholders, or suppress them entirely.";
-  if (strcmp(setting.key, "hideBatteryPercentage") == 0) return "Hide the battery percentage in headers and reader.";
-  if (strcmp(setting.key, "sleepTimeout") == 0) return "Idle time before the device automatically sleeps.";
-  if (strcmp(setting.key, "showHiddenFiles") == 0) return "Display files and folders whose names start with a dot.";
-  if (strcmp(setting.key, "showFreeHeap") == 0) return "Show free RAM in the home screen header for debugging.";
-  if (strcmp(setting.key, "fileBrowserSort") == 0) return "Sort files by natural filename order or file size.";
-  if (strcmp(setting.key, "longPressChapterSkip") == 0) return "Hold a side button to jump to the next chapter.";
-  if (strcmp(setting.key, "sideButtonLayout") == 0) return "Swap the page-turn direction of the side buttons.";
-  if (strcmp(setting.key, "shortPwrBtn") == 0) return "Choose what a short press of the power button does.";
-  if (strcmp(setting.key, "sleepScreen") == 0) return "Select what remains visible while the device sleeps.";
-  if (strcmp(setting.key, "sleepScreenCoverMode") == 0) return "Fit or crop book covers on the sleep screen.";
-  if (strcmp(setting.key, "sleepScreenCoverFilter") == 0) return "Apply a higher-contrast filter to sleep covers.";
-  if (strcmp(setting.key, "uiTheme") == 0) return "Change the visual styling used across menus and lists.";
-  if (strcmp(setting.key, "fadingFix") == 0) return "Compensates for sunlight-related e-ink fading.";
-  return nullptr;
+  if (!setting.key) return StrId::STR_NONE_OPT;
+  if (strcmp(setting.key, "refreshFrequency") == 0) return StrId::STR_SETTINGS_DESC_REFRESH_FREQUENCY;
+  if (strcmp(setting.key, "fontFamily") == 0) return StrId::STR_SETTINGS_DESC_FONT_FAMILY;
+  if (strcmp(setting.key, "fontSize") == 0) return StrId::STR_SETTINGS_DESC_FONT_SIZE;
+  if (strcmp(setting.key, "lineSpacing") == 0) return StrId::STR_SETTINGS_DESC_LINE_SPACING;
+  if (strcmp(setting.key, "screenMargin") == 0) return StrId::STR_SETTINGS_DESC_SCREEN_MARGIN;
+  if (strcmp(setting.key, "paragraphAlignment") == 0) return StrId::STR_SETTINGS_DESC_PARAGRAPH_ALIGNMENT;
+  if (strcmp(setting.key, "embeddedStyle") == 0) return StrId::STR_SETTINGS_DESC_EMBEDDED_STYLE;
+  if (strcmp(setting.key, "hyphenationEnabled") == 0) return StrId::STR_SETTINGS_DESC_HYPHENATION;
+  if (strcmp(setting.key, "orientation") == 0) return StrId::STR_SETTINGS_DESC_ORIENTATION;
+  if (strcmp(setting.key, "extraParagraphSpacing") == 0) return StrId::STR_SETTINGS_DESC_EXTRA_PARAGRAPH_SPACING;
+  if (strcmp(setting.key, "textAntiAliasing") == 0) return StrId::STR_SETTINGS_DESC_TEXT_AA;
+  if (strcmp(setting.key, "imageRendering") == 0) return StrId::STR_SETTINGS_DESC_IMAGE_RENDERING;
+  if (strcmp(setting.key, "hideBatteryPercentage") == 0) return StrId::STR_SETTINGS_DESC_HIDE_BATTERY;
+  if (strcmp(setting.key, "sleepTimeout") == 0) return StrId::STR_SETTINGS_DESC_SLEEP_TIMEOUT;
+  if (strcmp(setting.key, "showHiddenFiles") == 0) return StrId::STR_SETTINGS_DESC_SHOW_HIDDEN_FILES;
+  if (strcmp(setting.key, "showFreeHeap") == 0) return StrId::STR_SETTINGS_DESC_SHOW_FREE_HEAP;
+  if (strcmp(setting.key, "fileBrowserSort") == 0) return StrId::STR_SETTINGS_DESC_FILE_BROWSER_SORT;
+  if (strcmp(setting.key, "longPressChapterSkip") == 0) return StrId::STR_SETTINGS_DESC_LONG_PRESS_SKIP;
+  if (strcmp(setting.key, "sideButtonLayout") == 0) return StrId::STR_SETTINGS_DESC_SIDE_BUTTON_LAYOUT;
+  if (strcmp(setting.key, "shortPwrBtn") == 0) return StrId::STR_SETTINGS_DESC_SHORT_PWR_BTN;
+  if (strcmp(setting.key, "sleepScreen") == 0) return StrId::STR_SETTINGS_DESC_SLEEP_SCREEN;
+  if (strcmp(setting.key, "sleepScreenCoverMode") == 0) return StrId::STR_SETTINGS_DESC_SLEEP_COVER_MODE;
+  if (strcmp(setting.key, "sleepScreenCoverFilter") == 0) return StrId::STR_SETTINGS_DESC_SLEEP_COVER_FILTER;
+  if (strcmp(setting.key, "uiTheme") == 0) return StrId::STR_SETTINGS_DESC_UI_THEME;
+  if (strcmp(setting.key, "fadingFix") == 0) return StrId::STR_SETTINGS_DESC_FADING_FIX;
+  return StrId::STR_NONE_OPT;
 }
 
 void SettingsActivity::onEnter() {
@@ -278,9 +278,9 @@ void SettingsActivity::render(RenderLock&&) {
       settingsCount, selectedSettingIndex - 1,
       [&settings](int index) { return std::string(I18N.get(settings[index].nameId)); },
       [&settings, this](int index) -> std::string {
-        if (index != selectedSettingIndex - 1) return "";
-        const char* desc = getSettingDescription(settings[index]);
-        return desc ? std::string(desc) : "";
+        const StrId descId = getSettingDescriptionId(settings[index]);
+        if (descId == StrId::STR_NONE_OPT) return "";
+        return std::string(I18N.get(descId));
       },
       nullptr,
       [&settings](int i) {

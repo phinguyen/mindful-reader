@@ -326,6 +326,36 @@ void GfxRenderer::drawLine(int x1, int y1, int x2, int y2, const int lineWidth, 
   }
 }
 
+void GfxRenderer::drawPatternHLine(int xStart, int xEnd, const int y, const int thickness, const int onPixels,
+                                   const int offPixels, const bool state) const {
+  if (thickness <= 0 || onPixels <= 0 || offPixels < 0) {
+    return;
+  }
+
+  if (xStart > xEnd) {
+    std::swap(xStart, xEnd);
+  }
+
+  if (offPixels == 0) {
+    drawLine(xStart, y, xEnd, y, thickness, state);
+    return;
+  }
+
+  const int patternSpan = onPixels + offPixels;
+  if (patternSpan <= 0) {
+    return;
+  }
+
+  int segmentStart = xStart;
+  while (segmentStart <= xEnd) {
+    const int segmentEnd = std::min(segmentStart + onPixels - 1, xEnd);
+    if (segmentStart <= segmentEnd) {
+      drawLine(segmentStart, y, segmentEnd, y, thickness, state);
+    }
+    segmentStart += patternSpan;
+  }
+}
+
 void GfxRenderer::drawRect(const int x, const int y, const int width, const int height, const bool state) const {
   drawLine(x, y, x + width - 1, y, state);
   drawLine(x + width - 1, y, x + width - 1, y + height - 1, state);

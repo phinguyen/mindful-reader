@@ -336,12 +336,12 @@ void FileBrowserActivity::render(RenderLock&&) {
   } else {
     GUI.drawList(
         renderer, Rect{0, contentTop, pageWidth, contentHeight}, files.size(), selectorIndex,
-        [this](int index) { return getFileName(files[index]); }, nullptr,
-        [this](int index) { return UITheme::getFileIcon(files[index]); },
+        [this](int index) { return getFileName(files[index]); },
         [this](int index) -> std::string {
           if (files[index].back() == '/') return "";
           return formatFileSize(fileSizes[index]);
-        });
+        },
+        [this](int index) { return UITheme::getFileIcon(files[index]); }, nullptr);
   }
 
   // Help text
