@@ -46,8 +46,13 @@ UI_FONT_STYLES=("Regular" "Bold")
 
 for size in ${UI_FONT_SIZES[@]}; do
   for style in ${UI_FONT_STYLES[@]}; do
-    font_name="ubuntu_${size}_$(echo $style | tr '[:upper:]' '[:lower:]')"
-    font_path="../builtinFonts/source/Ubuntu/Ubuntu-${style}.ttf"
+    # Use NotoSansTC for UI fonts
+    font_name="notosanstc_${size}_$(echo $style | tr '[:upper:]' '[:lower:]')"
+    if [ "$style" = "Regular" ]; then
+      font_path="../builtinFonts/source/NotoSansTC/NotoSansTC-Regular.ttf"
+    else
+      font_path="../builtinFonts/source/NotoSansTC/NotoSansTC-Bold.ttf"
+    fi
     output_path="../builtinFonts/${font_name}.h"
     python3 fontconvert.py $font_name $size $font_path > $output_path
     echo "Generated $output_path"
