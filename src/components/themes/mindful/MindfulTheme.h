@@ -18,7 +18,7 @@ constexpr ThemeMetrics values = {.batteryWidth = 16,
                                  .menuRowHeight = 45,
                                  .menuSpacing = 8,
                                  .tabSpacing = 10,
-                                 .tabBarHeight = 50,
+                                 .tabBarHeight = 40,
                                  .scrollBarWidth = 4,
                                  .scrollBarRightOffset = 5,
                                  .homeTopPadding = 40,
@@ -39,16 +39,20 @@ constexpr ThemeMetrics values = {.batteryWidth = 16,
 }
 
 class MindfulTheme : public BaseTheme {
- public:
-  void drawHeader(const GfxRenderer& renderer, Rect rect, const char* title, const char* subtitle) const override;
-  void drawSubHeader(const GfxRenderer& renderer, Rect rect, const char* label,
-                     const char* rightLabel = nullptr) const override;
-  void drawTabBar(const GfxRenderer& renderer, Rect rect, const std::vector<TabInfo>& tabs,
+public:
+  void drawHeader(const GfxRenderer &renderer, Rect rect, const char *title,
+                  const char *subtitle) const override;
+  void drawSubHeader(const GfxRenderer &renderer, Rect rect, const char *label,
+                     const char *rightLabel = nullptr) const override;
+  void drawTabBar(const GfxRenderer &renderer, Rect rect,
+                  const std::vector<TabInfo> &tabs,
                   bool selected) const override;
-  void drawList(const GfxRenderer& renderer, Rect rect, int itemCount, int selectedIndex,
-                const std::function<std::string(int index)>& rowTitle,
-                const std::function<std::string(int index)>& rowSubtitle,
-                const std::function<UIIcon(int index)>& rowIcon, const std::function<std::string(int index)>& rowValue,
+  void drawList(const GfxRenderer &renderer, Rect rect, int itemCount,
+                int selectedIndex,
+                const std::function<std::string(int index)> &rowTitle,
+                const std::function<std::string(int index)> &rowSubtitle,
+                const std::function<UIIcon(int index)> &rowIcon,
+                const std::function<std::string(int index)> &rowValue,
                 bool highlightValue) const override;
   bool showsFileIcons() const override { return true; }
 };
