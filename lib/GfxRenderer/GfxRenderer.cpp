@@ -1,5 +1,6 @@
 #include "GfxRenderer.h"
 
+#include <EInkDisplay.h>
 #include <FontDecompressor.h>
 #include <HalGPIO.h>
 #include <Logging.h>
@@ -138,6 +139,14 @@ static void renderCharImpl(const GfxRenderer& renderer, GfxRenderer::RenderMode 
             renderer.drawPixel(screenX, screenY, false);
           } else if (renderMode == GfxRenderer::GRAYSCALE_LSB && bmpVal == 1) {
             // Dark gray
+            renderer.drawPixel(screenX, screenY, false);
+          } else if (renderMode == GfxRenderer::GRAY2_LSB && !(bmpVal & 1)) {
+            // Factory absolute LSB (BW RAM): set BW=1 for Black(0) and LightGrey(2)
+            // clearScreen(0x00) base; drawPixel(false) sets bit to 1
+            renderer.drawPixel(screenX, screenY, false);
+          } else if (renderMode == GfxRenderer::GRAY2_MSB && bmpVal < 2) {
+            // Factory absolute MSB (RED RAM): set RED=1 for Black(0) and DarkGrey(1)
+            // clearScreen(0x00) base; drawPixel(false) sets bit to 1
             renderer.drawPixel(screenX, screenY, false);
           }
         }
@@ -720,6 +729,12 @@ void GfxRenderer::drawBitmap(const Bitmap& bitmap, const int x, const int y, con
         drawPixel(screenX, screenY, false);
       } else if (renderMode == GRAYSCALE_LSB && val == 1) {
         drawPixel(screenX, screenY, false);
+      } else if (renderMode == GRAY2_LSB && !(val & 1)) {
+        // Factory absolute LSB: Black(0) and LightGrey(2) need BW bit=1
+        drawPixel(screenX, screenY, false);
+      } else if (renderMode == GRAY2_MSB && val < 2) {
+        // Factory absolute MSB: Black(0) and DarkGrey(1) need RED bit=1
+        drawPixel(screenX, screenY, false);
       }
     }
   }
@@ -1164,7 +1179,43 @@ void GfxRenderer::copyGrayscaleLsbBuffers() const { display.copyGrayscaleLsbBuff
 
 void GfxRenderer::copyGrayscaleMsbBuffers() const { display.copyGrayscaleMsbBuffers(frameBuffer); }
 
-void GfxRenderer::displayGrayBuffer() const { display.displayGrayBuffer(fadingFix); }
+void GfxRenderer::displayGrayBuffer(const unsigned char* lut, bool factoryMode) const { display.displayGrayBuffer(fadingFix, lut, factoryMode); }
+
+void GfxRenderer::renderGrayscale(GrayscaleMode mode, void (*renderFn)(GfxRenderer&, void*), void* ctx) {
+  if (mode == GrayscaleMode::FactoryFast || mode == GrayscaleMode::FactoryQuality) {
+    // Pre-flash to white so the factory LUT can drive particles reliably from any prior state.
+    // Without this, particles stranded at intermediate grays may not complete their transition:
+    // from a known-white state only downward transitions are needed, which both LUTs handle cleanly.
+    //
+    // HALF_REFRESH (CTRL1_BYPASS_RED) guarantees true white regardless of RED RAM sync state.
+    // FAST_REFRESH is differential against RED RAM — after any prior grayscale operation the RED RAM
+    // may be stale (e.g. chapter menu rendered while display shows gray), so pixels the controller
+    // believes are already white may physically be at gray or chapter-menu positions and won't be
+    // driven to white, corrupting the subsequent gray render.
+    clearScreen();
+    displayBuffer(HalDisplay::HALF_REFRESH);
+  }
+
+  const RenderMode lsbMode = (mode == GrayscaleMode::Differential) ? GRAYSCALE_LSB : GRAY2_LSB;
+  const RenderMode msbMode = (mode == GrayscaleMode::Differential) ? GRAYSCALE_MSB : GRAY2_MSB;
+  const bool factoryMode = (mode != GrayscaleMode::Differential);
+  const unsigned char* lut = (mode == GrayscaleMode::FactoryFast) ? lut_factory_fast
+                             : (mode == GrayscaleMode::FactoryQuality) ? lut_factory_quality
+                                                                       : nullptr;
+
+  clearScreen(0x00);
+  setRenderMode(lsbMode);
+  renderFn(*this, ctx);
+  copyGrayscaleLsbBuffers();
+
+  clearScreen(0x00);
+  setRenderMode(msbMode);
+  renderFn(*this, ctx);
+  copyGrayscaleMsbBuffers();
+
+  displayGrayBuffer(lut, factoryMode);
+  setRenderMode(BW);
+}
 
 void GfxRenderer::freeBwBufferChunks() {
   for (auto& bwBufferChunk : bwBufferChunks) {

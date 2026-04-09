@@ -1,5 +1,6 @@
 #include "EpubReaderActivity.h"
 
+#include <EInkDisplay.h>
 #include <Epub/Page.h>
 #include <Epub/blocks/TextBlock.h>
 #include <FontCacheManager.h>
@@ -20,8 +21,8 @@
 #include "MappedInputManager.h"
 #include "QrDisplayActivity.h"
 #include "ReaderUtils.h"
-#include "RecentBooksStore.h"
 #include "ReadingStats.h"
+#include "RecentBooksStore.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/ScreenshotUtil.h"
@@ -112,8 +113,7 @@ void EpubReaderActivity::onExit() {
   uint8_t progress = 0;
   const char* title = epub ? epub->getTitle().c_str() : nullptr;
   if (epub && epub->getBookSize() > 0 && section && section->pageCount > 0) {
-    const float chapterProgress =
-        static_cast<float>(section->currentPage) / static_cast<float>(section->pageCount);
+    const float chapterProgress = static_cast<float>(section->currentPage) / static_cast<float>(section->pageCount);
     progress = static_cast<uint8_t>(
         clampPercent(static_cast<int>(epub->calculateProgress(currentSpineIndex, chapterProgress) * 100.0f + 0.5f)));
   }
@@ -772,6 +772,10 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   fcm->logStats("bw_render");
   const auto tBwRender = millis();
 
+  const bool useFactoryGray = SETTINGS.textAntiAliasing && !imagePageWithAA &&
+                              (SETTINGS.grayRefreshMode == CrossPointSettings::GRAY_REFRESH_FACTORY_FAST ||
+                               SETTINGS.grayRefreshMode == CrossPointSettings::GRAY_REFRESH_FACTORY_QUALITY);
+
   if (imagePageWithAA) {
     // Double FAST_REFRESH with selective image blanking (pablohc's technique):
     // HALF_REFRESH sets particles too firmly for the grayscale LUT to adjust.
@@ -791,9 +795,12 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
       renderer.displayBuffer(HalDisplay::HALF_REFRESH);
     }
     // Double FAST_REFRESH handles ghosting for image pages; don't count toward full refresh cadence
-  } else {
+  } else if (!useFactoryGray) {
+    // Original mode: display BW first, then apply differential gray AA
     ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh);
   }
+
+  // Factory gray mode: skip BW display entirely — factory LUT drives pixels absolutely
   const auto tDisplay = millis();
 
   // Save bw buffer to reset buffer state after grayscale data sync
@@ -803,35 +810,73 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   // grayscale rendering
   // TODO: Only do this if font supports it
   if (SETTINGS.textAntiAliasing) {
-    renderer.clearScreen(0x00);
-    renderer.setRenderMode(GfxRenderer::GRAYSCALE_LSB);
-    page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
-    renderer.copyGrayscaleLsbBuffers();
-    const auto tGrayLsb = millis();
+    if (useFactoryGray) {
+      // Factory absolute encoding: single display update, no BW flash before gray
+      // clearScreen(0xFF) = white background; drawPixel(true) marks pixels needing bit=0
+      const unsigned char* factoryLut = lut_factory_fast;
+      if (SETTINGS.grayRefreshMode == CrossPointSettings::GRAY_REFRESH_FACTORY_QUALITY)
+        factoryLut = lut_factory_quality;
+      else if (SETTINGS.grayRefreshMode == CrossPointSettings::GRAY_REFRESH_XFAST)
+        factoryLut = lut_xfast;
 
-    // Render and copy to MSB buffer
-    renderer.clearScreen(0x00);
-    renderer.setRenderMode(GfxRenderer::GRAYSCALE_MSB);
-    page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
-    renderer.copyGrayscaleMsbBuffers();
-    const auto tGrayMsb = millis();
+      renderer.clearScreen(0x00);
+      renderer.setRenderMode(GfxRenderer::GRAY2_LSB);
+      page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
+      renderer.copyGrayscaleLsbBuffers();
+      const auto tGrayLsb = millis();
 
-    // display grayscale part
-    renderer.displayGrayBuffer();
-    const auto tGrayDisplay = millis();
-    renderer.setRenderMode(GfxRenderer::BW);
-    fcm->logStats("gray");
+      renderer.clearScreen(0x00);
+      renderer.setRenderMode(GfxRenderer::GRAY2_MSB);
+      page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
+      renderer.copyGrayscaleMsbBuffers();
+      const auto tGrayMsb = millis();
 
-    // restore the bw data
-    renderer.restoreBwBuffer();
-    const auto tBwRestore = millis();
+      renderer.displayGrayBuffer(factoryLut, true);
+      const auto tGrayDisplay = millis();
+      renderer.setRenderMode(GfxRenderer::BW);
+      fcm->logStats("gray_factory");
 
-    const auto tEnd = millis();
-    LOG_DBG("ERS",
-            "Page render: prewarm=%lums bw_render=%lums display=%lums bw_store=%lums "
-            "gray_lsb=%lums gray_msb=%lums gray_display=%lums bw_restore=%lums total=%lums",
-            tPrewarm - t0, tBwRender - tPrewarm, tDisplay - tBwRender, tBwStore - tDisplay, tGrayLsb - tBwStore,
-            tGrayMsb - tGrayLsb, tGrayDisplay - tGrayMsb, tBwRestore - tGrayDisplay, tEnd - t0);
+      renderer.restoreBwBuffer();
+      const auto tBwRestore = millis();
+
+      const auto tEnd = millis();
+      LOG_DBG("ERS",
+              "Page render (factory): prewarm=%lums bw_render=%lums bw_store=%lums "
+              "gray_lsb=%lums gray_msb=%lums gray_display=%lums bw_restore=%lums total=%lums",
+              tPrewarm - t0, tBwRender - tPrewarm, tBwStore - tDisplay, tGrayLsb - tBwStore, tGrayMsb - tGrayLsb,
+              tGrayDisplay - tGrayMsb, tBwRestore - tGrayDisplay, tEnd - t0);
+    } else {
+      renderer.clearScreen(0x00);
+      renderer.setRenderMode(GfxRenderer::GRAYSCALE_LSB);
+      page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
+      renderer.copyGrayscaleLsbBuffers();
+      const auto tGrayLsb = millis();
+
+      // Render and copy to MSB buffer
+      renderer.clearScreen(0x00);
+      renderer.setRenderMode(GfxRenderer::GRAYSCALE_MSB);
+      page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
+      renderer.copyGrayscaleMsbBuffers();
+      const auto tGrayMsb = millis();
+
+      // display grayscale part
+      renderer.displayGrayBuffer();
+      const auto tGrayDisplay = millis();
+      renderer.setRenderMode(GfxRenderer::BW);
+      fcm->logStats("gray");
+
+      // restore the bw data
+      renderer.restoreBwBuffer();
+      const auto tBwRestore = millis();
+
+      const auto tEnd = millis();
+      LOG_DBG("ERS",
+              "Page render: prewarm=%lums bw_render=%lums display=%lums bw_store=%lums "
+              "gray_lsb=%lums gray_msb=%lums gray_display=%lums bw_restore=%lums total=%lums",
+              tPrewarm - t0, tBwRender - tPrewarm, tDisplay - tBwRender, tBwStore - tDisplay, tGrayLsb - tBwStore,
+              tGrayMsb - tGrayLsb, tGrayDisplay - tGrayMsb, tBwRestore - tGrayDisplay, tEnd - t0);
+    }
+
   } else {
     // restore the bw data
     renderer.restoreBwBuffer();
@@ -896,8 +941,7 @@ void EpubReaderActivity::renderStatusBar() const {
     const unsigned long elapsedSec = (millis() - sessionStartMs) / 1000;
     const unsigned long hours = elapsedSec / 3600;
     const unsigned long mins = (elapsedSec % 3600) / 60;
-    rightInfo = (hours > 0) ? (std::to_string(hours) + "h" + std::to_string(mins) + "m")
-                            : (std::to_string(mins) + "m");
+    rightInfo = (hours > 0) ? (std::to_string(hours) + "h" + std::to_string(mins) + "m") : (std::to_string(mins) + "m");
   }
 
   GUI.drawStatusBar(renderer, bookProgress, currentPage, pageCount, title, 0, textYOffset, leftInfo, rightInfo);

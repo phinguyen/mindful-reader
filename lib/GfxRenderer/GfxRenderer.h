@@ -2,7 +2,6 @@
 
 #include <EpdFontFamily.h>
 #include <HalDisplay.h>
-
 #include "FontCacheManager.h"
 
 #include <cstring>
@@ -18,7 +17,13 @@ enum Color : uint8_t { Clear = 0x00, White = 0x01, LightGray = 0x05, DarkGray = 
 
 class GfxRenderer {
  public:
-  enum RenderMode { BW, GRAYSCALE_LSB, GRAYSCALE_MSB };
+  enum RenderMode {
+    BW,             // 1-bit black/white
+    GRAYSCALE_LSB,  // Differential gray: mark pixels for LSB plane (clearScreen(0x00) + drawPixel(false))
+    GRAYSCALE_MSB,  // Differential gray: mark pixels for MSB plane (clearScreen(0x00) + drawPixel(false))
+    GRAY2_LSB,      // Factory absolute gray: encode BW RAM = bit0 (clearScreen(0xFF) + drawPixel(true))
+    GRAY2_MSB,      // Factory absolute gray: encode RED RAM = bit1 (clearScreen(0xFF) + drawPixel(true))
+  };
 
   // Logical screen orientation from the perspective of callers
   enum Orientation {
@@ -28,6 +33,13 @@ class GfxRenderer {
     LandscapeCounterClockwise  // 800x480 logical coordinates, native panel orientation
   };
 
+  // Selects LUT, pixel-plane encoding, and pre-flash behavior for renderGrayscale().
+  enum class GrayscaleMode {
+    FactoryFast,     // Factory absolute 2-bit (lut_factory_fast); HALF_REFRESH pre-flash to white
+    FactoryQuality,  // Factory absolute 2-bit (lut_factory_quality); HALF_REFRESH pre-flash to white
+    Differential,    // Differential 2-bit overlay (no LUT); no pre-flash, requires prior BW state
+  };
+
  private:
   static constexpr size_t BW_BUFFER_CHUNK_SIZE = 8000;  // 8KB chunks to allow for non-contiguous memory
 
@@ -35,7 +47,7 @@ class GfxRenderer {
   RenderMode renderMode;
   Orientation orientation;
   bool fadingFix;
-  uint8_t textDarkness = 0;  // 0=normal, 1=dark, 2=extra dark
+  uint8_t textDarkness = 0;              // 0=normal, 1=dark, 2=extra dark
   mutable bool nextRefreshFull = false;  // if true, next displayBuffer() upgrades to FULL_REFRESH
   mutable bool nextRefreshHalf = false;  // if true, next displayBuffer() upgrades to HALF_REFRESH
   uint8_t* frameBuffer = nullptr;
@@ -78,7 +90,6 @@ class GfxRenderer {
   }
   FontCacheManager* getFontCacheManager() const { return fontCacheManager_; }
   const std::map<int, EpdFontFamily>& getFontMap() const { return fontMap; }
-
   // Orientation control (affects logical width/height and coordinate transforms)
   void setOrientation(const Orientation o) { orientation = o; }
   Orientation getOrientation() const { return orientation; }
@@ -163,11 +174,16 @@ class GfxRenderer {
   RenderMode getRenderMode() const { return renderMode; }
   void copyGrayscaleLsbBuffers() const;
   void copyGrayscaleMsbBuffers() const;
-  void displayGrayBuffer() const;
+  void displayGrayBuffer(const unsigned char* lut = nullptr, bool factoryMode = false) const;
   bool storeBwBuffer();    // Returns true if buffer was stored successfully
   void restoreBwBuffer();  // Restore and free the stored buffer
   void cleanupGrayscaleWithFrameBuffer() const;
-
+  // Two-pass grayscale render. renderFn is called twice: once with the LSB render mode set
+  // (writes BW RAM plane), then with the MSB mode set (writes RED RAM plane). The method
+  // handles pre-flash (FactoryFast only), clearScreen, setRenderMode, buffer copies,
+  // displayGrayBuffer, and resets renderMode to BW on completion.
+  // storeBwBuffer / restoreBwBuffer remain the caller's responsibility.
+  void renderGrayscale(GrayscaleMode mode, void (*renderFn)(GfxRenderer&, void*), void* ctx);
   // Font helpers
   const uint8_t* getGlyphBitmap(const EpdFontData* fontData, const EpdGlyph* glyph) const;
 
