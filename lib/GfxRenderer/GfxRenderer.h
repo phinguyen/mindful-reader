@@ -35,6 +35,9 @@ class GfxRenderer {
   RenderMode renderMode;
   Orientation orientation;
   bool fadingFix;
+  uint8_t textDarkness = 0;  // 0=normal, 1=dark, 2=extra dark
+  mutable bool nextRefreshFull = false;  // if true, next displayBuffer() upgrades to FULL_REFRESH
+  mutable bool nextRefreshHalf = false;  // if true, next displayBuffer() upgrades to HALF_REFRESH
   uint8_t* frameBuffer = nullptr;
   uint16_t panelWidth = HalDisplay::DISPLAY_WIDTH;
   uint16_t panelHeight = HalDisplay::DISPLAY_HEIGHT;
@@ -82,6 +85,15 @@ class GfxRenderer {
 
   // Fading fix control
   void setFadingFix(const bool enabled) { fadingFix = enabled; }
+
+  // Text darkness control (0=normal, 1=dark, 2=extra dark; only affects AA/grayscale rendering)
+  void setTextDarkness(const uint8_t d) { textDarkness = d; }
+  uint8_t getTextDarkness() const { return textDarkness; }
+
+  // Request that the next displayBuffer() call uses FULL_REFRESH to clear ghosting.
+  // Called by ActivityManager on activity transitions; resets automatically after use.
+  void requestNextFullRefresh() { nextRefreshFull = true; }
+  void requestNextHalfRefresh() { nextRefreshHalf = true; }
 
   // Screen ops
   int getScreenWidth() const;

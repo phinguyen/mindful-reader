@@ -21,6 +21,7 @@
 #include "QrDisplayActivity.h"
 #include "ReaderUtils.h"
 #include "RecentBooksStore.h"
+#include "ReadingStats.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
 #include "util/ScreenshotUtil.h"
@@ -80,6 +81,8 @@ void EpubReaderActivity::onEnter() {
       LOG_DBG("ERS", "Opened for first time, navigating to text reference at index %d", textSpineIndex);
     }
   }
+  // Begin tracking how long this reading session lasts
+  READ_STATS.startSession();
 
   // Save current epub as last opened epub and add to recent books
   APP_STATE.openEpubPath = epub->getPath();
@@ -97,6 +100,27 @@ void EpubReaderActivity::onEnter() {
 
 void EpubReaderActivity::onExit() {
   Activity::onExit();
+
+  // Reset text darkness to normal for UI screens
+  renderer.setTextDarkness(0);
+
+  // Request half refresh for the next screen to clear accumulated reader ghosting
+  renderer.requestNextHalfRefresh();
+
+  // Accumulate reading time and record book progress before resetting state
+  uint8_t progress = 0;
+  const char* title = epub ? epub->getTitle().c_str() : nullptr;
+  if (epub && epub->getBookSize() > 0 && section && section->pageCount > 0) {
+    const float chapterProgress =
+        static_cast<float>(section->currentPage) / static_cast<float>(section->pageCount);
+    progress = static_cast<uint8_t>(
+        clampPercent(static_cast<int>(epub->calculateProgress(currentSpineIndex, chapterProgress) * 100.0f + 0.5f)));
+  }
+  const char* bookPath = epub ? epub->getPath().c_str() : nullptr;
+  READ_STATS.endSession(title, progress, bookPath);
+
+  // Save bookmarks before exit
+  bookmarkStore.save();
 
   // Reset orientation back to portrait for the rest of the UI
   renderer.setOrientation(GfxRenderer::Orientation::Portrait);
