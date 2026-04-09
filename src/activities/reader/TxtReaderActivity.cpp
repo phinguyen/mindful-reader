@@ -306,105 +306,10 @@ bool TxtReaderActivity::loadPageAtOffset(size_t offset,
   buffer[chunkSize] = '\0';
 
   // Parse lines from buffer
-  size_t pos = 0;
-
-  while (pos < chunkSize && static_cast<int>(outLines.size()) < linesPerPage) {
-    // Find end of line
-    size_t lineEnd = pos;
-    while (lineEnd < chunkSize && buffer[lineEnd] != '\n') {
-      lineEnd++;
-    }
-
-    // Check if we have a complete line
-    bool lineComplete = (lineEnd < chunkSize) || (offset + lineEnd >= fileSize);
-
-    if (!lineComplete && static_cast<int>(outLines.size()) > 0) {
-      // Incomplete line and we already have some lines, stop here
-      break;
-    }
-
-    // Calculate the actual length of line content in the buffer (excluding
-    // newline)
-    size_t lineContentLen = lineEnd - pos;
-
-    // Check for carriage return
-    bool hasCR =
-        (lineContentLen > 0 && buffer[pos + lineContentLen - 1] == '\r');
-    size_t displayLen = hasCR ? lineContentLen - 1 : lineContentLen;
-
-    // Extract line content for display (without CR/LF)
-    std::string line(reinterpret_cast<char *>(buffer + pos), displayLen);
-
-    // Track position within this source line (in bytes from pos)
-    size_t lineBytePos = 0;
-
-    // Word wrap if needed
-    while (!line.empty() && static_cast<int>(outLines.size()) < linesPerPage) {
-      int lineWidth = renderer.getTextWidth(cachedFontId, line.c_str());
-
-      if (lineWidth <= viewportWidth) {
-        outLines.push_back(line);
-        lineBytePos = displayLen; // Consumed entire display content
-        line.clear();
-        break;
-      }
-
-      // Find break point
-      size_t breakPos = line.length();
-      while (breakPos > 0 &&
-             renderer.getTextWidth(cachedFontId,
-                                   line.substr(0, breakPos).c_str()) >
-                 viewportWidth) {
-        // Try to break at space
-        size_t spacePos = line.rfind(' ', breakPos - 1);
-        if (spacePos != std::string::npos && spacePos > 0) {
-          breakPos = spacePos;
-        } else {
-          // Break at character boundary for UTF-8
-          breakPos--;
-          // Make sure we don't break in the middle of a UTF-8 sequence
-          while (breakPos > 0 && (line[breakPos] & 0xC0) == 0x80) {
-            breakPos--;
-          }
-        }
-      }
-
-      if (breakPos == 0) {
-        breakPos = 1;
-      }
-
-      outLines.push_back(line.substr(0, breakPos));
-
-      // Skip space at break point
-      size_t skipChars = breakPos;
-      if (breakPos < line.length() && line[breakPos] == ' ') {
-        skipChars++;
-      }
-      lineBytePos += skipChars;
-      line = line.substr(skipChars);
-    }
-
-    // Determine how much of the source buffer we consumed
-    if (line.empty()) {
-      // Fully consumed this source line, move past the newline
-      pos = lineEnd + 1;
-    } else {
-      // Partially consumed - page is full mid-line
-      // Move pos to where we stopped in the line (NOT past the line)
-      pos = pos + lineBytePos;
-      break;
-    }
-  }
-
-  // Ensure we make progress even if calculations go wrong
-  if (pos == 0 && !outLines.empty()) {
-    // Fallback: at minimum, consume something to avoid infinite loop
-    pos = 1;
-  }
+  size_t pos = parseAndWrapLines(buffer, chunkSize, offset, fileSize, linesPerPage, renderer, cachedFontId,
+                                 viewportWidth, outLines);
 
   nextOffset = offset + pos;
-
-  // Make sure we don't go past the file
   if (nextOffset > fileSize) {
     nextOffset = fileSize;
   }
