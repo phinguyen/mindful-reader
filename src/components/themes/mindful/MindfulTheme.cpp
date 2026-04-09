@@ -12,10 +12,12 @@
 #include "components/icons/folder.h"
 #include "components/icons/folder24.h"
 #include "components/icons/hotspot.h"
+#include "components/icons/image.h"
 #include "components/icons/image24.h"
 #include "components/icons/library.h"
 #include "components/icons/recent.h"
 #include "components/icons/settings2.h"
+#include "components/icons/text.h"
 #include "components/icons/text24.h"
 #include "components/icons/transfer.h"
 #include "components/icons/wifi.h"
@@ -26,48 +28,33 @@ constexpr int maxSubtitleWidth = 100;
 constexpr int maxListValueWidth = 200;
 constexpr int hPaddingInSelection = 8;
 constexpr int cornerRadius = 12;
-constexpr int mainMenuIconSize = 32;
-constexpr int listIconSize = 32;
+constexpr int iconSize = 32;
 
-const uint8_t* iconForName(UIIcon icon, int size) {
-  if (size == 24) {
-    switch (icon) {
-      case UIIcon::Folder:
-        return Folder24Icon;
-      case UIIcon::Text:
-        return Text24Icon;
-      case UIIcon::Image:
-        return Image24Icon;
-      case UIIcon::Book:
-        return Book24Icon;
-      case UIIcon::File:
-        return File24Icon;
-      default:
-        return nullptr;
-    }
-  } else if (size == 32) {
-    switch (icon) {
-      case UIIcon::Folder:
-        return FolderIcon;
-      case UIIcon::Book:
-        return BookIcon;
-      case UIIcon::Recent:
-        return RecentIcon;
-      case UIIcon::Settings:
-        return Settings2Icon;
-      case UIIcon::Transfer:
-        return TransferIcon;
-      case UIIcon::Library:
-        return LibraryIcon;
-      case UIIcon::Wifi:
-        return WifiIcon;
-      case UIIcon::Hotspot:
-        return HotspotIcon;
-      default:
-        return nullptr;
-    }
+const uint8_t* iconForName(UIIcon icon) {
+  switch (icon) {
+    case UIIcon::Folder:
+      return FolderIcon;
+    case UIIcon::Book:
+      return BookIcon;
+    case UIIcon::Text:
+      return TextIcon;
+    case UIIcon::Image:
+      return ImageIcon;
+    case UIIcon::Recent:
+      return RecentIcon;
+    case UIIcon::Settings:
+      return Settings2Icon;
+    case UIIcon::Transfer:
+      return TransferIcon;
+    case UIIcon::Library:
+      return LibraryIcon;
+    case UIIcon::Wifi:
+      return WifiIcon;
+    case UIIcon::Hotspot:
+      return HotspotIcon;
+    default:
+      return nullptr;
   }
-  return nullptr;
 }
 
 int computeIconVisualCenterYOffset(const uint8_t* bitmap, int size) {
@@ -253,7 +240,6 @@ void MindfulTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCoun
 
     int contentX = rowX + contentPadding;
     int rowTextWidth = rowWidth - contentPadding * 2;
-    const int iconSize = hasSubtitleText ? mainMenuIconSize : listIconSize;
 
     // Draw name
     int valueWidth = 0;
@@ -282,7 +268,7 @@ void MindfulTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCoun
 
     if (rowIcon != nullptr) {
       UIIcon icon = rowIcon(i);
-      const uint8_t* iconBitmap = iconForName(icon, iconSize);
+      const uint8_t* iconBitmap = iconForName(icon);
       if (iconBitmap != nullptr) {
         int iconY = itemY + std::max(0, (rowHeight - iconSize) / 2);
         if (!hasSubtitleText) {

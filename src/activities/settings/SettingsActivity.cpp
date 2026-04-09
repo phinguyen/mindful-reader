@@ -2,6 +2,7 @@
 
 #include <GfxRenderer.h>
 #include <Logging.h>
+
 #include <cstring>
 
 #include "ButtonRemapActivity.h"
@@ -25,44 +26,44 @@ static StrId getSettingDescriptionId(const SettingInfo& setting) {
   if (setting.type == SettingType::ACTION) {
     switch (setting.action) {
       case SettingAction::CustomiseStatusBar:
-        return StrId::STR_SETTINGS_DESC_CUSTOMISE_STATUS_BAR;
+        return StrId::STR_DESC_CUSTOMISE_STATUS_BAR;
       case SettingAction::RemapFrontButtons:
-        return StrId::STR_SETTINGS_DESC_REMAP_FRONT_BUTTONS;
+        return StrId::STR_DESC_REMAP_FRONT_BUTTONS;
       case SettingAction::Network:
-        return StrId::STR_SETTINGS_DESC_WIFI_NETWORKS;
+        return StrId::STR_DESC_WIFI_NETWORKS;
       case SettingAction::Language:
-        return StrId::STR_SETTINGS_DESC_LANGUAGE;
+        return StrId::STR_DESC_LANGUAGE;
       default:
         return StrId::STR_NONE_OPT;
     }
   }
 
   if (!setting.key) return StrId::STR_NONE_OPT;
-  if (strcmp(setting.key, "refreshFrequency") == 0) return StrId::STR_SETTINGS_DESC_REFRESH_FREQUENCY;
-  if (strcmp(setting.key, "fontFamily") == 0) return StrId::STR_SETTINGS_DESC_FONT_FAMILY;
-  if (strcmp(setting.key, "fontSize") == 0) return StrId::STR_SETTINGS_DESC_FONT_SIZE;
-  if (strcmp(setting.key, "lineSpacing") == 0) return StrId::STR_SETTINGS_DESC_LINE_SPACING;
-  if (strcmp(setting.key, "screenMargin") == 0) return StrId::STR_SETTINGS_DESC_SCREEN_MARGIN;
-  if (strcmp(setting.key, "paragraphAlignment") == 0) return StrId::STR_SETTINGS_DESC_PARAGRAPH_ALIGNMENT;
-  if (strcmp(setting.key, "embeddedStyle") == 0) return StrId::STR_SETTINGS_DESC_EMBEDDED_STYLE;
-  if (strcmp(setting.key, "hyphenationEnabled") == 0) return StrId::STR_SETTINGS_DESC_HYPHENATION;
-  if (strcmp(setting.key, "orientation") == 0) return StrId::STR_SETTINGS_DESC_ORIENTATION;
-  if (strcmp(setting.key, "extraParagraphSpacing") == 0) return StrId::STR_SETTINGS_DESC_EXTRA_PARAGRAPH_SPACING;
-  if (strcmp(setting.key, "textAntiAliasing") == 0) return StrId::STR_SETTINGS_DESC_TEXT_AA;
-  if (strcmp(setting.key, "imageRendering") == 0) return StrId::STR_SETTINGS_DESC_IMAGE_RENDERING;
-  if (strcmp(setting.key, "hideBatteryPercentage") == 0) return StrId::STR_SETTINGS_DESC_HIDE_BATTERY;
-  if (strcmp(setting.key, "sleepTimeout") == 0) return StrId::STR_SETTINGS_DESC_SLEEP_TIMEOUT;
-  if (strcmp(setting.key, "showHiddenFiles") == 0) return StrId::STR_SETTINGS_DESC_SHOW_HIDDEN_FILES;
-  if (strcmp(setting.key, "showFreeHeap") == 0) return StrId::STR_SETTINGS_DESC_SHOW_FREE_HEAP;
-  if (strcmp(setting.key, "fileBrowserSort") == 0) return StrId::STR_SETTINGS_DESC_FILE_BROWSER_SORT;
-  if (strcmp(setting.key, "longPressChapterSkip") == 0) return StrId::STR_SETTINGS_DESC_LONG_PRESS_SKIP;
-  if (strcmp(setting.key, "sideButtonLayout") == 0) return StrId::STR_SETTINGS_DESC_SIDE_BUTTON_LAYOUT;
-  if (strcmp(setting.key, "shortPwrBtn") == 0) return StrId::STR_SETTINGS_DESC_SHORT_PWR_BTN;
-  if (strcmp(setting.key, "sleepScreen") == 0) return StrId::STR_SETTINGS_DESC_SLEEP_SCREEN;
-  if (strcmp(setting.key, "sleepScreenCoverMode") == 0) return StrId::STR_SETTINGS_DESC_SLEEP_COVER_MODE;
-  if (strcmp(setting.key, "sleepScreenCoverFilter") == 0) return StrId::STR_SETTINGS_DESC_SLEEP_COVER_FILTER;
-  if (strcmp(setting.key, "uiTheme") == 0) return StrId::STR_SETTINGS_DESC_UI_THEME;
-  if (strcmp(setting.key, "fadingFix") == 0) return StrId::STR_SETTINGS_DESC_FADING_FIX;
+  if (strcmp(setting.key, "refreshFrequency") == 0) return StrId::STR_DESC_REFRESH_FREQUENCY;
+  if (strcmp(setting.key, "fontFamily") == 0) return StrId::STR_DESC_FONT_FAMILY;
+  if (strcmp(setting.key, "fontSize") == 0) return StrId::STR_DESC_FONT_SIZE;
+  if (strcmp(setting.key, "lineSpacing") == 0) return StrId::STR_DESC_LINE_SPACING;
+  if (strcmp(setting.key, "screenMargin") == 0) return StrId::STR_DESC_SCREEN_MARGIN;
+  if (strcmp(setting.key, "paragraphAlignment") == 0) return StrId::STR_DESC_PARAGRAPH_ALIGNMENT;
+  if (strcmp(setting.key, "embeddedStyle") == 0) return StrId::STR_DESC_EMBEDDED_STYLE;
+  if (strcmp(setting.key, "hyphenationEnabled") == 0) return StrId::STR_DESC_HYPHENATION;
+  if (strcmp(setting.key, "orientation") == 0) return StrId::STR_DESC_ORIENTATION;
+  if (strcmp(setting.key, "extraParagraphSpacing") == 0) return StrId::STR_DESC_EXTRA_PARAGRAPH_SPACING;
+  if (strcmp(setting.key, "textAntiAliasing") == 0) return StrId::STR_DESC_TEXT_AA;
+  if (strcmp(setting.key, "imageRendering") == 0) return StrId::STR_DESC_IMAGE_RENDERING;
+  if (strcmp(setting.key, "hideBatteryPercentage") == 0) return StrId::STR_DESC_HIDE_BATTERY;
+  if (strcmp(setting.key, "sleepTimeout") == 0) return StrId::STR_DESC_SLEEP_TIMEOUT;
+  if (strcmp(setting.key, "showHiddenFiles") == 0) return StrId::STR_DESC_SHOW_HIDDEN_FILES;
+  if (strcmp(setting.key, "showFreeHeap") == 0) return StrId::STR_DESC_SHOW_FREE_HEAP;
+  if (strcmp(setting.key, "fileBrowserSort") == 0) return StrId::STR_DESC_FILE_BROWSER_SORT;
+  if (strcmp(setting.key, "longPressChapterSkip") == 0) return StrId::STR_DESC_LONG_PRESS_SKIP;
+  if (strcmp(setting.key, "sideButtonLayout") == 0) return StrId::STR_DESC_SIDE_BUTTON_LAYOUT;
+  if (strcmp(setting.key, "shortPwrBtn") == 0) return StrId::STR_DESC_SHORT_PWR_BTN;
+  if (strcmp(setting.key, "sleepScreen") == 0) return StrId::STR_DESC_SLEEP_SCREEN;
+  if (strcmp(setting.key, "sleepScreenCoverMode") == 0) return StrId::STR_DESC_SLEEP_COVER_MODE;
+  if (strcmp(setting.key, "sleepScreenCoverFilter") == 0) return StrId::STR_DESC_SLEEP_COVER_FILTER;
+  if (strcmp(setting.key, "uiTheme") == 0) return StrId::STR_DESC_UI_THEME;
+  if (strcmp(setting.key, "fadingFix") == 0) return StrId::STR_DESC_FADING_FIX;
   return StrId::STR_NONE_OPT;
 }
 
