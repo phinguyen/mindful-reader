@@ -81,6 +81,7 @@ void EpubReaderActivity::onEnter() {
       LOG_DBG("ERS", "Opened for first time, navigating to text reference at index %d", textSpineIndex);
     }
   }
+
   // Begin tracking how long this reading session lasts
   READ_STATS.startSession();
 
@@ -118,9 +119,6 @@ void EpubReaderActivity::onExit() {
   }
   const char* bookPath = epub ? epub->getPath().c_str() : nullptr;
   READ_STATS.endSession(title, progress, bookPath);
-
-  // Save bookmarks before exit
-  bookmarkStore.save();
 
   // Reset orientation back to portrait for the rest of the UI
   renderer.setOrientation(GfxRenderer::Orientation::Portrait);

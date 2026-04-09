@@ -93,31 +93,6 @@ size_t parseAndWrapLines(const uint8_t *buffer, size_t chunkSize,
 }
 } // namespace
 
-void TxtReaderActivity::openStarredPages() {
-  startActivityForResult(
-      std::make_unique<StarredPagesActivity>(renderer, mappedInput,
-                                             bookmarkStore.getAll()),
-      [this](const ActivityResult &result) {
-        if (!result.isCancelled) {
-          const auto &starred = std::get<StarredPageResult>(result.data);
-          if (starred.action == StarredPageResult::DELETE) {
-            bookmarkStore.toggle(0, static_cast<uint16_t>(starred.pageNumber));
-            bookmarkStore.save();
-            if (!bookmarkStore.isEmpty()) {
-              openStarredPages();
-            }
-            return;
-          }
-          currentPage = starred.pageNumber;
-          if (currentPage >= totalPages)
-            currentPage = totalPages - 1;
-          if (currentPage < 0)
-            currentPage = 0;
-        }
-        requestUpdate();
-      });
-}
-
 void TxtReaderActivity::onEnter() {
   Activity::onEnter();
 
@@ -128,7 +103,6 @@ void TxtReaderActivity::onEnter() {
   ReaderUtils::applyOrientation(renderer, SETTINGS.orientation);
 
   txt->setupCacheDir();
-  bookmarkStore.load(txt->getCachePath());
 
   // Save current txt as last opened file and add to recent books
   auto filePath = txt->getPath();
@@ -149,9 +123,6 @@ void TxtReaderActivity::onExit() {
 
   // Request half refresh for the next screen to clear accumulated reader ghosting
   renderer.requestNextHalfRefresh();
-
-  // Save bookmarks before exit
-  bookmarkStore.save();
 
   // Reset orientation back to portrait for the rest of the UI
   renderer.setOrientation(GfxRenderer::Orientation::Portrait);

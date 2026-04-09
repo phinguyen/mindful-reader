@@ -3,7 +3,7 @@
 #include <EpdFontFamily.h>
 #include <HalDisplay.h>
 
-class FontCacheManager;
+#include "FontCacheManager.h"
 
 #include <cstring>
 #include <map>
@@ -74,7 +74,7 @@ class GfxRenderer {
   void insertFont(int fontId, EpdFontFamily font);
   void setFontCacheManager(FontCacheManager* m) { fontCacheManager_ = m; }
   void clearFontCache() {
-    if (fontDecompressor) fontDecompressor->clearCache();
+    if (fontCacheManager_) fontCacheManager_->clearCache();
   }
   FontCacheManager* getFontCacheManager() const { return fontCacheManager_; }
   const std::map<int, EpdFontFamily>& getFontMap() const { return fontMap; }
