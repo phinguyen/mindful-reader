@@ -44,6 +44,9 @@ public:
                   const char *subtitle) const override;
   void drawSubHeader(const GfxRenderer &renderer, Rect rect, const char *label,
                      const char *rightLabel = nullptr) const override;
+  void drawButtonHints(GfxRenderer& renderer, const char* btn1, const char* btn2, const char* btn3,
+                       const char* btn4) const override;
+  void drawSideButtonHints(const GfxRenderer& renderer, const char* topBtn, const char* bottomBtn) const override;
   void drawTabBar(const GfxRenderer &renderer, Rect rect,
                   const std::vector<TabInfo> &tabs,
                   bool selected) const override;
