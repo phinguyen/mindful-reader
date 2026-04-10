@@ -57,6 +57,13 @@ class CrossPointSettings {
     STATUS_BAR_PROGRESS_BAR_THICKNESS_COUNT
   };
   enum STATUS_BAR_TITLE { BOOK_TITLE = 0, CHAPTER_TITLE = 1, HIDE_TITLE = 2, STATUS_BAR_TITLE_COUNT };
+  enum FILE_BROWSER_SORT {
+    FILE_SORT_NAME_ASC = 0,
+    FILE_SORT_NAME_DESC = 1,
+    FILE_SORT_SIZE_ASC = 2,
+    FILE_SORT_SIZE_DESC = 3,
+    FILE_BROWSER_SORT_COUNT
+  };
 
   enum ORIENTATION {
     PORTRAIT = 0,       // 480x800 logical coordinates (current default)
@@ -92,7 +99,7 @@ class CrossPointSettings {
   enum SIDE_BUTTON_LAYOUT { PREV_NEXT = 0, NEXT_PREV = 1, SIDE_BUTTON_LAYOUT_COUNT };
 
   // Font family options
-  enum FONT_FAMILY { BOOKERLY = 0, NOTOSANS = 1, OPENDYSLEXIC = 2, FONT_FAMILY_COUNT };
+  enum FONT_FAMILY { BOOKERLY = 0, NOTOSANS = 1, INTER = 2, FONT_FAMILY_COUNT };
   // Font size options
   enum FONT_SIZE { SMALL = 0, MEDIUM = 1, LARGE = 2, EXTRA_LARGE = 3, FONT_SIZE_COUNT };
   enum LINE_COMPRESSION { TIGHT = 0, NORMAL = 1, WIDE = 2, LINE_COMPRESSION_COUNT };
@@ -132,10 +139,22 @@ class CrossPointSettings {
   enum HIDE_BATTERY_PERCENTAGE { HIDE_NEVER = 0, HIDE_READER = 1, HIDE_ALWAYS = 2, HIDE_BATTERY_PERCENTAGE_COUNT };
 
   // UI Theme
-  enum UI_THEME { CLASSIC = 0, LYRA = 1, LYRA_3_COVERS = 2 };
+  enum UI_THEME { CLASSIC = 0, LYRA = 1, LYRA_3_COVERS = 2, MINDFUL = 3 };
 
   // Image rendering in EPUB reader
   enum IMAGE_RENDERING { IMAGES_DISPLAY = 0, IMAGES_PLACEHOLDER = 1, IMAGES_SUPPRESS = 2, IMAGE_RENDERING_COUNT };
+
+  // 2-bit grayscale refresh mode (XTC and EPUB anti-aliasing)
+  // ORIGINAL: current 12-frame differential waveform, no black blink, fastest
+  // FACTORY_FAST: factory LUT1, 60 frames, black blink, ~40% faster than FACTORY_QUALITY
+  // FACTORY_QUALITY: factory LUT2, 50 frames, black blink, best gray quality, least ghosting
+  enum GRAY_REFRESH_MODE {
+    GRAY_REFRESH_ORIGINAL = 0,
+    GRAY_REFRESH_FACTORY_FAST = 1,
+    GRAY_REFRESH_FACTORY_QUALITY = 2,
+    GRAY_REFRESH_XFAST = 3,
+    GRAY_REFRESH_MODE_COUNT
+  };
 
   // Sleep screen settings
   uint8_t sleepScreen = DARK;
@@ -151,6 +170,8 @@ class CrossPointSettings {
   uint8_t statusBarProgressBarThickness = PROGRESS_BAR_NORMAL;
   uint8_t statusBarTitle = CHAPTER_TITLE;
   uint8_t statusBarBattery = 1;
+  uint8_t statusBarTimeEstimate = 0;
+  uint8_t statusBarSessionTimer = 0;
   // Text rendering settings
   uint8_t extraParagraphSpacing = 1;
   uint8_t textAntiAliasing = 1;
@@ -197,8 +218,14 @@ class CrossPointSettings {
   uint8_t embeddedStyle = 1;
   // Show hidden files/directories (starting with '.') in the file browser (0 = hidden, 1 = show)
   uint8_t showHiddenFiles = 0;
+  // Developer option: show free heap in home header
+  uint8_t showFreeHeap = 0;
+  // File browser sort mode
+  uint8_t fileBrowserSort = FILE_SORT_NAME_ASC;
   // Image rendering mode in EPUB reader
   uint8_t imageRendering = IMAGES_DISPLAY;
+  // 2-bit grayscale refresh mode for XTC and EPUB anti-aliasing
+  uint8_t grayRefreshMode = GRAY_REFRESH_FACTORY_FAST;
 
   ~CrossPointSettings() = default;
 

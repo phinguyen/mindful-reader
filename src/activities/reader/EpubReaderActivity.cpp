@@ -1,5 +1,6 @@
 #include "EpubReaderActivity.h"
 
+#include <EInkDisplay.h>
 #include <Epub/Page.h>
 #include <Epub/blocks/TextBlock.h>
 #include <FontCacheManager.h>
@@ -20,6 +21,7 @@
 #include "MappedInputManager.h"
 #include "QrDisplayActivity.h"
 #include "ReaderUtils.h"
+#include "ReadingStats.h"
 #include "RecentBooksStore.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
@@ -81,10 +83,18 @@ void EpubReaderActivity::onEnter() {
     }
   }
 
+  // Begin tracking how long this reading session lasts
+  READ_STATS.startSession();
+
   // Save current epub as last opened epub and add to recent books
   APP_STATE.openEpubPath = epub->getPath();
   APP_STATE.saveToFile();
   RECENT_BOOKS.addBook(epub->getPath(), epub->getTitle(), epub->getAuthor(), epub->getThumbBmpPath());
+
+  sessionStartMs = millis();
+  lastUserPageTurnMs = sessionStartMs;
+  pageTurnTimesIdx = 0;
+  pageTurnTimesCount = 0;
 
   // Trigger first update
   requestUpdate();
@@ -92,6 +102,23 @@ void EpubReaderActivity::onEnter() {
 
 void EpubReaderActivity::onExit() {
   Activity::onExit();
+
+  // Reset text darkness to normal for UI screens
+  renderer.setTextDarkness(0);
+
+  // Request half refresh for the next screen to clear accumulated reader ghosting
+  renderer.requestNextHalfRefresh();
+
+  // Accumulate reading time and record book progress before resetting state
+  uint8_t progress = 0;
+  const char* title = epub ? epub->getTitle().c_str() : nullptr;
+  if (epub && epub->getBookSize() > 0 && section && section->pageCount > 0) {
+    const float chapterProgress = static_cast<float>(section->currentPage) / static_cast<float>(section->pageCount);
+    progress = static_cast<uint8_t>(
+        clampPercent(static_cast<int>(epub->calculateProgress(currentSpineIndex, chapterProgress) * 100.0f + 0.5f)));
+  }
+  const char* bookPath = epub ? epub->getPath().c_str() : nullptr;
+  READ_STATS.endSession(title, progress, bookPath);
 
   // Reset orientation back to portrait for the rest of the UI
   renderer.setOrientation(GfxRenderer::Orientation::Portrait);
@@ -461,6 +488,17 @@ void EpubReaderActivity::toggleAutoPageTurn(const uint8_t selectedPageTurnOption
 }
 
 void EpubReaderActivity::pageTurn(bool isForwardTurn) {
+  if (!automaticPageTurnActive && lastUserPageTurnMs > 0) {
+    const unsigned long now = millis();
+    const unsigned long duration = now - lastUserPageTurnMs;
+    if (duration >= 1000 && duration <= 600000) {
+      pageTurnTimes[pageTurnTimesIdx] = duration;
+      pageTurnTimesIdx = (pageTurnTimesIdx + 1) % 10;
+      if (pageTurnTimesCount < 10) pageTurnTimesCount++;
+    }
+    lastUserPageTurnMs = now;
+  }
+
   if (isForwardTurn) {
     if (section->currentPage < section->pageCount - 1) {
       section->currentPage++;
@@ -638,6 +676,7 @@ void EpubReaderActivity::render(RenderLock&& lock) {
     const auto start = millis();
     renderContents(std::move(p), orientedMarginTop, orientedMarginRight, orientedMarginBottom, orientedMarginLeft);
     LOG_DBG("ERS", "Rendered page in %dms", millis() - start);
+    renderer.clearFontCache();
   }
   silentIndexNextChapterIfNeeded(viewportWidth, viewportHeight);
   saveProgress(currentSpineIndex, section->currentPage, section->pageCount);
@@ -681,11 +720,18 @@ void EpubReaderActivity::silentIndexNextChapterIfNeeded(const uint16_t viewportW
 }
 
 void EpubReaderActivity::saveProgress(int spineIndex, int currentPage, int pageCount) {
+  // Guard: don't save out-of-bounds spine index (end-of-book state).
+  // Otherwise reopening the book would jump to the "finished" screen.
+  if (epub && spineIndex >= static_cast<int>(epub->getSpineItemsCount())) {
+    spineIndex = epub->getSpineItemsCount() - 1;
+    // Clamp to last page of last chapter
+    currentPage = (pageCount > 0) ? pageCount - 1 : 0;
+  }
   FsFile f;
   if (Storage.openFileForWrite("ERS", epub->getCachePath() + "/progress.bin", f)) {
     uint8_t data[6];
-    data[0] = currentSpineIndex & 0xFF;
-    data[1] = (currentSpineIndex >> 8) & 0xFF;
+    data[0] = spineIndex & 0xFF;
+    data[1] = (spineIndex >> 8) & 0xFF;
     data[2] = currentPage & 0xFF;
     data[3] = (currentPage >> 8) & 0xFF;
     data[4] = pageCount & 0xFF;
@@ -696,6 +742,12 @@ void EpubReaderActivity::saveProgress(int spineIndex, int currentPage, int pageC
   } else {
     LOG_ERR("ERS", "Could not save progress!");
   }
+
+  // Update progress percent in recent books store for home screen display
+  const float chapterProg = (pageCount > 0) ? static_cast<float>(currentPage) / pageCount : 0.0f;
+  const float bookProg = epub->calculateProgress(currentSpineIndex, chapterProg) * 100.0f;
+  const uint8_t percent = static_cast<uint8_t>(clampPercent(static_cast<int>(bookProg + 0.5f)));
+  RECENT_BOOKS.updateBookProgress(epub->getPath(), percent);
 }
 void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int orientedMarginTop,
                                         const int orientedMarginRight, const int orientedMarginBottom,
@@ -724,6 +776,10 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   fcm->logStats("bw_render");
   const auto tBwRender = millis();
 
+  const bool useFactoryGray = SETTINGS.textAntiAliasing && !imagePageWithAA &&
+                              (SETTINGS.grayRefreshMode == CrossPointSettings::GRAY_REFRESH_FACTORY_FAST ||
+                               SETTINGS.grayRefreshMode == CrossPointSettings::GRAY_REFRESH_FACTORY_QUALITY);
+
   if (imagePageWithAA) {
     // Double FAST_REFRESH with selective image blanking (pablohc's technique):
     // HALF_REFRESH sets particles too firmly for the grayscale LUT to adjust.
@@ -743,9 +799,12 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
       renderer.displayBuffer(HalDisplay::HALF_REFRESH);
     }
     // Double FAST_REFRESH handles ghosting for image pages; don't count toward full refresh cadence
-  } else {
+  } else if (!useFactoryGray) {
+    // Original mode: display BW first, then apply differential gray AA
     ReaderUtils::displayWithRefreshCycle(renderer, pagesUntilFullRefresh);
   }
+
+  // Factory gray mode: skip BW display entirely — factory LUT drives pixels absolutely
   const auto tDisplay = millis();
 
   // Save bw buffer to reset buffer state after grayscale data sync
@@ -755,35 +814,73 @@ void EpubReaderActivity::renderContents(std::unique_ptr<Page> page, const int or
   // grayscale rendering
   // TODO: Only do this if font supports it
   if (SETTINGS.textAntiAliasing) {
-    renderer.clearScreen(0x00);
-    renderer.setRenderMode(GfxRenderer::GRAYSCALE_LSB);
-    page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
-    renderer.copyGrayscaleLsbBuffers();
-    const auto tGrayLsb = millis();
+    if (useFactoryGray) {
+      // Factory absolute encoding: single display update, no BW flash before gray
+      // clearScreen(0xFF) = white background; drawPixel(true) marks pixels needing bit=0
+      const unsigned char* factoryLut = lut_factory_fast;
+      if (SETTINGS.grayRefreshMode == CrossPointSettings::GRAY_REFRESH_FACTORY_QUALITY)
+        factoryLut = lut_factory_quality;
+      else if (SETTINGS.grayRefreshMode == CrossPointSettings::GRAY_REFRESH_XFAST)
+        factoryLut = lut_xfast;
 
-    // Render and copy to MSB buffer
-    renderer.clearScreen(0x00);
-    renderer.setRenderMode(GfxRenderer::GRAYSCALE_MSB);
-    page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
-    renderer.copyGrayscaleMsbBuffers();
-    const auto tGrayMsb = millis();
+      renderer.clearScreen(0x00);
+      renderer.setRenderMode(GfxRenderer::GRAY2_LSB);
+      page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
+      renderer.copyGrayscaleLsbBuffers();
+      const auto tGrayLsb = millis();
 
-    // display grayscale part
-    renderer.displayGrayBuffer();
-    const auto tGrayDisplay = millis();
-    renderer.setRenderMode(GfxRenderer::BW);
-    fcm->logStats("gray");
+      renderer.clearScreen(0x00);
+      renderer.setRenderMode(GfxRenderer::GRAY2_MSB);
+      page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
+      renderer.copyGrayscaleMsbBuffers();
+      const auto tGrayMsb = millis();
 
-    // restore the bw data
-    renderer.restoreBwBuffer();
-    const auto tBwRestore = millis();
+      renderer.displayGrayBuffer(factoryLut, true);
+      const auto tGrayDisplay = millis();
+      renderer.setRenderMode(GfxRenderer::BW);
+      fcm->logStats("gray_factory");
 
-    const auto tEnd = millis();
-    LOG_DBG("ERS",
-            "Page render: prewarm=%lums bw_render=%lums display=%lums bw_store=%lums "
-            "gray_lsb=%lums gray_msb=%lums gray_display=%lums bw_restore=%lums total=%lums",
-            tPrewarm - t0, tBwRender - tPrewarm, tDisplay - tBwRender, tBwStore - tDisplay, tGrayLsb - tBwStore,
-            tGrayMsb - tGrayLsb, tGrayDisplay - tGrayMsb, tBwRestore - tGrayDisplay, tEnd - t0);
+      renderer.restoreBwBuffer();
+      const auto tBwRestore = millis();
+
+      const auto tEnd = millis();
+      LOG_DBG("ERS",
+              "Page render (factory): prewarm=%lums bw_render=%lums bw_store=%lums "
+              "gray_lsb=%lums gray_msb=%lums gray_display=%lums bw_restore=%lums total=%lums",
+              tPrewarm - t0, tBwRender - tPrewarm, tBwStore - tDisplay, tGrayLsb - tBwStore, tGrayMsb - tGrayLsb,
+              tGrayDisplay - tGrayMsb, tBwRestore - tGrayDisplay, tEnd - t0);
+    } else {
+      renderer.clearScreen(0x00);
+      renderer.setRenderMode(GfxRenderer::GRAYSCALE_LSB);
+      page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
+      renderer.copyGrayscaleLsbBuffers();
+      const auto tGrayLsb = millis();
+
+      // Render and copy to MSB buffer
+      renderer.clearScreen(0x00);
+      renderer.setRenderMode(GfxRenderer::GRAYSCALE_MSB);
+      page->render(renderer, SETTINGS.getReaderFontId(), orientedMarginLeft, orientedMarginTop);
+      renderer.copyGrayscaleMsbBuffers();
+      const auto tGrayMsb = millis();
+
+      // display grayscale part
+      renderer.displayGrayBuffer();
+      const auto tGrayDisplay = millis();
+      renderer.setRenderMode(GfxRenderer::BW);
+      fcm->logStats("gray");
+
+      // restore the bw data
+      renderer.restoreBwBuffer();
+      const auto tBwRestore = millis();
+
+      const auto tEnd = millis();
+      LOG_DBG("ERS",
+              "Page render: prewarm=%lums bw_render=%lums display=%lums bw_store=%lums "
+              "gray_lsb=%lums gray_msb=%lums gray_display=%lums bw_restore=%lums total=%lums",
+              tPrewarm - t0, tBwRender - tPrewarm, tDisplay - tBwRender, tBwStore - tDisplay, tGrayLsb - tBwStore,
+              tGrayMsb - tGrayLsb, tGrayDisplay - tGrayMsb, tBwRestore - tGrayDisplay, tEnd - t0);
+    }
+
   } else {
     // restore the bw data
     renderer.restoreBwBuffer();
@@ -805,6 +902,8 @@ void EpubReaderActivity::renderStatusBar() const {
   const float bookProgress = epub->calculateProgress(currentSpineIndex, sectionChapterProg) * 100;
 
   std::string title;
+  std::string leftInfo;
+  std::string rightInfo;
 
   int textYOffset = 0;
 
@@ -831,7 +930,40 @@ void EpubReaderActivity::renderStatusBar() const {
     title = epub->getTitle();
   }
 
-  GUI.drawStatusBar(renderer, bookProgress, currentPage, pageCount, title, 0, textYOffset);
+  if (SETTINGS.statusBarTimeEstimate) {
+    const int minsLeft = getEstimatedMinutesLeft();
+    if (minsLeft > 0) {
+      if (minsLeft >= 60) {
+        leftInfo = "~" + std::to_string(minsLeft / 60) + "h" + std::to_string(minsLeft % 60) + "m";
+      } else {
+        leftInfo = "~" + std::to_string(minsLeft) + "m";
+      }
+    }
+  }
+
+  if (SETTINGS.statusBarSessionTimer && sessionStartMs > 0) {
+    const unsigned long elapsedSec = (millis() - sessionStartMs) / 1000;
+    const unsigned long hours = elapsedSec / 3600;
+    const unsigned long mins = (elapsedSec % 3600) / 60;
+    rightInfo = (hours > 0) ? (std::to_string(hours) + "h" + std::to_string(mins) + "m") : (std::to_string(mins) + "m");
+  }
+
+  GUI.drawStatusBar(renderer, bookProgress, currentPage, pageCount, title, 0, textYOffset, leftInfo, rightInfo);
+}
+
+int EpubReaderActivity::getEstimatedMinutesLeft() const {
+  if (!section || pageTurnTimesCount == 0) return 0;
+
+  unsigned long totalMs = 0;
+  for (int i = 0; i < pageTurnTimesCount; i++) {
+    totalMs += pageTurnTimes[i];
+  }
+
+  const int pagesLeft = section->pageCount - section->currentPage - 1;
+  if (pagesLeft <= 0) return 0;
+
+  const unsigned long avgMs = totalMs / static_cast<unsigned long>(pageTurnTimesCount);
+  return static_cast<int>((avgMs * static_cast<unsigned long>(pagesLeft)) / 60000UL);
 }
 
 void EpubReaderActivity::navigateToHref(const std::string& hrefStr, const bool savePosition) {

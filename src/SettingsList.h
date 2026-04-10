@@ -30,15 +30,16 @@ inline const std::vector<SettingInfo>& getSettingsList() {
           StrId::STR_REFRESH_FREQ, &CrossPointSettings::refreshFrequency,
           {StrId::STR_PAGES_1, StrId::STR_PAGES_5, StrId::STR_PAGES_10, StrId::STR_PAGES_15, StrId::STR_PAGES_30},
           "refreshFrequency", StrId::STR_CAT_DISPLAY),
-      SettingInfo::Enum(StrId::STR_UI_THEME, &CrossPointSettings::uiTheme,
-                        {StrId::STR_THEME_CLASSIC, StrId::STR_THEME_LYRA, StrId::STR_THEME_LYRA_EXTENDED}, "uiTheme",
-                        StrId::STR_CAT_DISPLAY),
+      SettingInfo::Enum(
+          StrId::STR_UI_THEME, &CrossPointSettings::uiTheme,
+          {StrId::STR_THEME_CLASSIC, StrId::STR_THEME_LYRA, StrId::STR_THEME_LYRA_EXTENDED, StrId::STR_THEME_MINDFUL},
+          "uiTheme", StrId::STR_CAT_DISPLAY),
       SettingInfo::Toggle(StrId::STR_SUNLIGHT_FADING_FIX, &CrossPointSettings::fadingFix, "fadingFix",
                           StrId::STR_CAT_DISPLAY),
 
       // --- Reader ---
       SettingInfo::Enum(StrId::STR_FONT_FAMILY, &CrossPointSettings::fontFamily,
-                        {StrId::STR_BOOKERLY, StrId::STR_NOTO_SANS, StrId::STR_OPEN_DYSLEXIC}, "fontFamily",
+                        {StrId::STR_BOOKERLY, StrId::STR_NOTO_SANS, StrId::STR_INTER}, "fontFamily",
                         StrId::STR_CAT_READER),
       SettingInfo::Enum(StrId::STR_FONT_SIZE, &CrossPointSettings::fontSize,
                         {StrId::STR_SMALL, StrId::STR_MEDIUM, StrId::STR_LARGE, StrId::STR_X_LARGE}, "fontSize",
@@ -65,6 +66,10 @@ inline const std::vector<SettingInfo>& getSettingsList() {
       SettingInfo::Enum(StrId::STR_IMAGES, &CrossPointSettings::imageRendering,
                         {StrId::STR_IMAGES_DISPLAY, StrId::STR_IMAGES_PLACEHOLDER, StrId::STR_IMAGES_SUPPRESS},
                         "imageRendering", StrId::STR_CAT_READER),
+      SettingInfo::Enum(StrId::STR_GRAY_REFRESH_MODE, &CrossPointSettings::grayRefreshMode,
+                        {StrId::STR_GRAY_REFRESH_ORIGINAL, StrId::STR_GRAY_REFRESH_FAST,
+                         StrId::STR_GRAY_REFRESH_QUALITY, StrId::STR_GRAY_REFRESH_XFAST},
+                        "grayRefreshMode", StrId::STR_CAT_READER),
       // --- Controls ---
       SettingInfo::Enum(StrId::STR_SIDE_BTN_LAYOUT, &CrossPointSettings::sideButtonLayout,
                         {StrId::STR_PREV_NEXT, StrId::STR_NEXT_PREV}, "sideButtonLayout", StrId::STR_CAT_CONTROLS),
@@ -80,6 +85,12 @@ inline const std::vector<SettingInfo>& getSettingsList() {
                         "sleepTimeout", StrId::STR_CAT_SYSTEM),
       SettingInfo::Toggle(StrId::STR_SHOW_HIDDEN_FILES, &CrossPointSettings::showHiddenFiles, "showHiddenFiles",
                           StrId::STR_CAT_SYSTEM),
+      SettingInfo::Toggle(StrId::STR_SHOW_FREE_HEAP, &CrossPointSettings::showFreeHeap, "showFreeHeap",
+                          StrId::STR_CAT_SYSTEM),
+      SettingInfo::Enum(
+          StrId::STR_FILE_SORT, &CrossPointSettings::fileBrowserSort,
+          {StrId::STR_SORT_NAME_ASC, StrId::STR_SORT_NAME_DESC, StrId::STR_SORT_SIZE_ASC, StrId::STR_SORT_SIZE_DESC},
+          "fileBrowserSort", StrId::STR_CAT_SYSTEM),
 
       // --- KOReader Sync (web-only, uses KOReaderCredentialStore) ---
       SettingInfo::DynamicString(
@@ -135,6 +146,10 @@ inline const std::vector<SettingInfo>& getSettingsList() {
                         {StrId::STR_BOOK, StrId::STR_CHAPTER, StrId::STR_HIDE}, "statusBarTitle",
                         StrId::STR_CUSTOMISE_STATUS_BAR),
       SettingInfo::Toggle(StrId::STR_BATTERY, &CrossPointSettings::statusBarBattery, "statusBarBattery",
+                          StrId::STR_CUSTOMISE_STATUS_BAR),
+      SettingInfo::Toggle(StrId::STR_TIME_ESTIMATE, &CrossPointSettings::statusBarTimeEstimate, "statusBarTimeEstimate",
+                          StrId::STR_CUSTOMISE_STATUS_BAR),
+      SettingInfo::Toggle(StrId::STR_SESSION_TIMER, &CrossPointSettings::statusBarSessionTimer, "statusBarSessionTimer",
                           StrId::STR_CUSTOMISE_STATUS_BAR),
   };
   return list;

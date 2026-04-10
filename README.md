@@ -1,10 +1,9 @@
-# CrossPoint Reader
+# Mindful Reader
 
 Firmware for the **Xteink X4** e-paper display reader (unaffiliated with Xteink).
 Built using **PlatformIO** and targeting the **ESP32-C3** microcontroller.
 
-CrossPoint Reader is a purpose-built firmware designed to be a drop-in, fully open-source replacement for the official 
-Xteink firmware. It aims to match or improve upon the standard EPUB reading experience.
+Mindful Reader is a fork of CrossPoint Reader, designed to provide a simple, focused reading experience for EPUB content on constrained hardware.
 
 ![](./docs/images/cover.jpg)
 
@@ -12,37 +11,29 @@ Xteink firmware. It aims to match or improve upon the standard EPUB reading expe
 
 E-paper devices are fantastic for reading, but most commercially available readers are closed systems with limited 
 customisation. The **Xteink X4** is an affordable, e-paper device, however the official firmware remains closed.
-CrossPoint exists partly as a fun side-project and partly to open up the ecosystem and truely unlock the device's
-potential.
+Mindful Reader exists to provide a simple, distraction-free reading experience that prioritizes the core act of reading.
 
-CrossPoint Reader aims to:
-* Provide a **fully open-source alternative** to the official firmware.
-* Offer a **document reader** capable of handling EPUB content on constrained hardware.
-* Support **customisable font, layout, and display** options.
+Mindful Reader aims to:
+* Provide a **simple and focused reading experience**.
+* Offer essential EPUB reading capabilities without unnecessary complexity.
+* Support basic customization while maintaining simplicity.
 * Run purely on the **Xteink X4 hardware**.
 
 This project is **not affiliated with Xteink**; it's built as a community project.
 
 ## Features & Usage
 
-- [x] EPUB parsing and rendering (EPUB 2 and EPUB 3)
-- [x] Image support within EPUB
-- [x] Saved reading position
-- [x] File explorer with file picker
-  - [x] Basic EPUB picker from root directory
-  - [x] Support nested folders
-  - [ ] EPUB picker with cover art
-- [x] Custom sleep screen
-  - [x] Cover sleep screen
-- [x] Wifi book upload
-- [x] Wifi OTA updates
-- [x] KOReader Sync integration for cross-device reading progress
-- [x] Configurable font, layout, and display options
-  - [ ] User provided fonts
-  - [ ] Full UTF support
-- [x] Screen rotation
-
-Multi-language support: Read EPUBs in various languages, including English, Spanish, French, German, Italian, Portuguese, Russian, Ukrainian, Polish, Swedish, Norwegian, [and more](./USER_GUIDE.md#supported-languages).
+- EPUB parsing and rendering (EPUB 2 and EPUB 3)
+- Image support within EPUB
+- Saved reading position
+- File explorer with file picker
+- Custom sleep screen
+- Wifi book upload
+- Wifi OTA updates
+- KOReader Sync integration for cross-device reading progress
+- Basic configurable font, layout, and display options
+- Screen rotation
+- Multi-language support
 
 See [the user guide](./USER_GUIDE.md) for instructions on operating CrossPoint, including the
 [KOReader Sync quick setup](./USER_GUIDE.md#365-koreader-sync-quick-setup).
