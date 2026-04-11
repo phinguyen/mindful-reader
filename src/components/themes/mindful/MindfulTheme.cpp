@@ -385,7 +385,7 @@ void MindfulTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, cons
     const int x = buttonPositions[i];
     const char* label = labels[i];
     if (label != nullptr && label[0] != '\0') {
-      renderer.fillRoundedRect(x, fullButtonTop, buttonWidth, buttonHeight, cornerRadius, Color::White);
+      // renderer.fillRoundedRect(x, fullButtonTop, buttonWidth, buttonHeight, cornerRadius, Color::White);
       renderer.drawRoundedRect(x, fullButtonTop, buttonWidth, buttonHeight, 1, cornerRadius, true, true, false, false,
                                true);
       if (const uint8_t* icon = iconForButtonLabel(label)) {
@@ -399,7 +399,7 @@ void MindfulTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, cons
         renderer.drawText(SMALL_FONT_ID, textX, textY, label);
       }
     } else {
-      renderer.fillRoundedRect(x, smallButtonTop, buttonWidth, smallButtonHeight, cornerRadius, Color::White);
+      // renderer.fillRoundedRect(x, smallButtonTop, buttonWidth, smallButtonHeight, cornerRadius, Color::White);
       renderer.drawRoundedRect(x, smallButtonTop, buttonWidth, smallButtonHeight, 1, cornerRadius, true, true, false,
                                false, true);
     }
@@ -587,25 +587,29 @@ void MindfulTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const s
   const int activeContentX = activeOuterX + MindfulMetrics::recentCarouselActiveBorderWidth;
   const int activeContentY = activeOuterY + MindfulMetrics::recentCarouselActiveBorderWidth;
 
-  const int sideY = activeContentY +
-                    (MindfulMetrics::recentCarouselActiveCoverHeight - MindfulMetrics::recentCarouselSideCoverHeight) /
-                        2;
-  const int leftX = activeOuterX - MindfulMetrics::recentCarouselHorizontalGap - MindfulMetrics::recentCarouselSideCoverWidth;
+  const int sideY =
+      activeContentY +
+      (MindfulMetrics::recentCarouselActiveCoverHeight - MindfulMetrics::recentCarouselSideCoverHeight) / 2;
+  const int leftX =
+      activeOuterX - MindfulMetrics::recentCarouselHorizontalGap - MindfulMetrics::recentCarouselSideCoverWidth;
   const int rightX = activeOuterX + activeOuterW + MindfulMetrics::recentCarouselHorizontalGap;
 
   const int progressY = activeOuterY + activeOuterH + MindfulMetrics::recentCarouselGapCoverToProgress;
   const int titleY =
       progressY + MindfulMetrics::recentCarouselProgressBarHeight + MindfulMetrics::recentCarouselGapProgressToTitle;
-  const int authorY = titleY + MindfulMetrics::recentCarouselTitleHeight + MindfulMetrics::recentCarouselGapTitleToAuthor;
+  const int authorY =
+      titleY + MindfulMetrics::recentCarouselTitleHeight + MindfulMetrics::recentCarouselGapTitleToAuthor;
   const int statsLineH = renderer.getLineHeight(SMALL_FONT_ID);
   const int statsYRaw =
-      authorY + MindfulMetrics::recentCarouselAuthorHeight + MindfulMetrics::recentCarouselGapAuthorToProgress;
-  const int maxStatsY =
-      rect.y + rect.height - MindfulMetrics::recentCarouselGapStatsToDots - statsLineH - MindfulMetrics::recentCarouselDotSize;
+      authorY + MindfulMetrics::recentCarouselAuthorHeight + MindfulMetrics::recentCarouselGapAuthorToStats;
+  const int maxStatsY = rect.y + rect.height - MindfulMetrics::recentCarouselGapStatsToDots - statsLineH -
+                        MindfulMetrics::recentCarouselDotSize;
   const int statsY = std::min(statsYRaw, maxStatsY);
   const int dotsY = statsY + statsLineH + MindfulMetrics::recentCarouselGapStatsToDots;
 
   const int textSlotX = (screenW - MindfulMetrics::recentCarouselTextSlotWidth) / 2;
+  const int titleTextSlotW = std::max(0, screenW - 60);
+  const int titleTextSlotX = (screenW - titleTextSlotW) / 2;
 
   auto wrapIndex = [&](int idx) -> int {
     if (bookCount <= 0) return 0;
@@ -614,11 +618,11 @@ void MindfulTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const s
     return idx;
   };
 
-  auto drawCenteredText = [&](int fontId, int y, const std::string& text) {
-    const std::string truncated = renderer.truncatedText(fontId, text.c_str(), MindfulMetrics::recentCarouselTextSlotWidth);
+  auto drawCenteredText = [&](int fontId, int y, const std::string& text, int slotX, int slotW) {
+    const std::string truncated = renderer.truncatedText(fontId, text.c_str(), slotW);
 
     const int textW = renderer.getTextWidth(fontId, truncated.c_str());
-    const int textX = textSlotX + (MindfulMetrics::recentCarouselTextSlotWidth - textW) / 2;
+    const int textX = slotX + (slotW - textW) / 2;
 
     renderer.drawText(fontId, textX, y, truncated.c_str(), true);
   };
@@ -814,33 +818,32 @@ void MindfulTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const s
     renderer.fillRect(activeOuterX, activeOuterY, activeOuterW, activeOuterH, false);
 
     // Active cover content
-    drawSlotCover(recentBooks[centerIdx], activeContentX, activeContentY, MindfulMetrics::recentCarouselActiveCoverWidth,
-                  MindfulMetrics::recentCarouselActiveCoverHeight);
+    drawSlotCover(recentBooks[centerIdx], activeContentX, activeContentY,
+                  MindfulMetrics::recentCarouselActiveCoverWidth, MindfulMetrics::recentCarouselActiveCoverHeight);
 
     // Active border (exactly 2px)
-    renderer.drawRect(activeOuterX, activeOuterY, activeOuterW, activeOuterH, MindfulMetrics::recentCarouselActiveBorderWidth, true);
+    renderer.drawRect(activeOuterX, activeOuterY, activeOuterW, activeOuterH,
+                      MindfulMetrics::recentCarouselActiveBorderWidth, true);
 
     // Clear metadata area
-    renderer.fillRect(textSlotX, titleY, MindfulMetrics::recentCarouselTextSlotWidth,
-                      MindfulMetrics::recentCarouselTitleHeight, false);
-    renderer.fillRect(textSlotX, authorY, MindfulMetrics::recentCarouselTextSlotWidth,
-                      MindfulMetrics::recentCarouselAuthorHeight, false);
+    renderer.fillRect(titleTextSlotX, titleY, titleTextSlotW, MindfulMetrics::recentCarouselTitleHeight, false);
+    renderer.fillRect(titleTextSlotX, authorY, titleTextSlotW, MindfulMetrics::recentCarouselAuthorHeight, false);
 
     // Title then author, both 1 line
-    drawCenteredText(UI_12_FONT_ID, titleY, recentBooks[centerIdx].title);
-    drawCenteredText(UI_10_FONT_ID, authorY, recentBooks[centerIdx].author);
+    drawCenteredText(UI_12_FONT_ID, titleY, recentBooks[centerIdx].title, titleTextSlotX, titleTextSlotW);
+    drawCenteredText(UI_10_FONT_ID, authorY, recentBooks[centerIdx].author, titleTextSlotX, titleTextSlotW);
 
     // Dots: windowed, max 5 visible
-    renderer.fillRect(textSlotX, dotsY, MindfulMetrics::recentCarouselTextSlotWidth, MindfulMetrics::recentCarouselDotSize,
-                      false);
+    renderer.fillRect(textSlotX, dotsY, MindfulMetrics::recentCarouselTextSlotWidth,
+                      MindfulMetrics::recentCarouselDotSize, false);
 
     int dotStart = 0;
     int dotEnd = 0;
     computeDotWindow(bookCount, centerIdx, MindfulMetrics::recentCarouselMaxVisibleDots, dotStart, dotEnd);
 
     const int visibleDots = dotEnd - dotStart;
-    const int dotsTotalW = visibleDots * MindfulMetrics::recentCarouselDotSize +
-                           (visibleDots - 1) * MindfulMetrics::recentCarouselDotGap;
+    const int dotsTotalW =
+        visibleDots * MindfulMetrics::recentCarouselDotSize + (visibleDots - 1) * MindfulMetrics::recentCarouselDotGap;
     int dotX = (screenW - dotsTotalW) / 2;
 
     for (int i = dotStart; i < dotEnd; ++i) {

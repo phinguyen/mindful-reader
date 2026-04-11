@@ -52,18 +52,18 @@ static constexpr int recentCarouselAuthorHeight = 24;
 static constexpr int recentCarouselGapCoverToTitle = 12;
 static constexpr int recentCarouselGapCoverToProgress = 6;
 static constexpr int recentCarouselGapProgressToTitle = 8;
-static constexpr int recentCarouselGapTitleToAuthor = 4;
-static constexpr int recentCarouselGapAuthorToProgress = 8;
+static constexpr int recentCarouselGapTitleToAuthor = 6;
+static constexpr int recentCarouselGapAuthorToStats = 10;
 static constexpr int recentCarouselProgressBarWidth = 220;
 static constexpr int recentCarouselProgressBarHeight = 6;
 static constexpr int recentCarouselGapProgressToStats = 6;
 static constexpr int recentCarouselStatsColumnGap = 8;
-static constexpr int recentCarouselGapStatsToDots = 6;
+static constexpr int recentCarouselGapStatsToDots = 10;
 static constexpr int recentCarouselDotSize = 6;
 static constexpr int recentCarouselDotGap = 10;
 static constexpr int recentCarouselMaxVisibleDots = 5;
 static constexpr int recentCarouselPlaceholderIconSize = 32;
-}
+}  // namespace MindfulMetrics
 
 class MindfulTheme : public BaseTheme {
  public:
