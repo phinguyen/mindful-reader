@@ -85,8 +85,12 @@ def svg_to_image(svg_path, width, height):
 
 def load_image(path, width, height):
     ext = os.path.splitext(path)[1].lower()
-    if ext == ".svg":
+    if ext == '.svg':
         img = svg_to_image(path, width, height)
+        # Flatten alpha: paste on white background to preserve transparent SVGs.
+        background = Image.new('RGBA', img.size, (255, 255, 255, 255))
+        background.paste(img, mask=img.split()[3])
+        img = background
     else:
         img = Image.open(path)
         img = img.convert("RGBA")
@@ -147,6 +151,5 @@ def main():
         f.write(c_array)
     print(f"Wrote {output_path}")
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

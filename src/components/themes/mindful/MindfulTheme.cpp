@@ -9,24 +9,19 @@
 
 #include "components/UITheme.h"
 #include "components/icons/book.h"
-#include "components/icons/book24.h"
+#include "components/icons/bookmark.h"
 #include "components/icons/check.h"
 #include "components/icons/cover.h"
 #include "components/icons/down24.h"
-#include "components/icons/file24.h"
 #include "components/icons/folder.h"
-#include "components/icons/folder24.h"
 #include "components/icons/hotspot.h"
 #include "components/icons/image.h"
-#include "components/icons/image24.h"
 #include "components/icons/left24.h"
-#include "components/icons/library.h"
-#include "components/icons/recent.h"
 #include "components/icons/right24.h"
+#include "components/icons/saturn.h"
 #include "components/icons/select24.h"
-#include "components/icons/settings2.h"
+#include "components/icons/settings.h"
 #include "components/icons/text.h"
-#include "components/icons/text24.h"
 #include "components/icons/transfer.h"
 #include "components/icons/up24.h"
 #include "components/icons/wifi.h"
@@ -39,6 +34,9 @@ constexpr int hPaddingInSelection = 8;
 constexpr int topHintButtonY = 345;
 constexpr int cornerRadius = 12;
 constexpr int iconSize = 32;
+constexpr int buttonMenuColumns = 3;
+constexpr int buttonMenuRows = 2;
+constexpr int buttonMenuTextGap = 6;
 
 const uint8_t* iconForName(UIIcon icon) {
   switch (icon) {
@@ -51,13 +49,13 @@ const uint8_t* iconForName(UIIcon icon) {
     case UIIcon::Image:
       return ImageIcon;
     case UIIcon::Recent:
-      return RecentIcon;
+      return BookmarkIcon;
     case UIIcon::Settings:
-      return Settings2Icon;
+      return SettingsIcon;
     case UIIcon::Transfer:
       return TransferIcon;
     case UIIcon::Library:
-      return LibraryIcon;
+      return SaturnIcon;
     case UIIcon::Wifi:
       return WifiIcon;
     case UIIcon::Hotspot:
@@ -470,4 +468,78 @@ void MindfulTheme::drawKeyboardKey(const GfxRenderer& renderer, Rect rect, const
   const int textX = rect.x + (rect.width - textWidth) / 2;
   const int textY = rect.y + (rect.height - renderer.getLineHeight(UI_12_FONT_ID)) / 2;
   renderer.drawText(UI_12_FONT_ID, textX, textY, label, !isSelected);
+}
+void MindfulTheme::drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonCount, int selectedIndex,
+                                  const std::function<std::string(int index)>& buttonLabel,
+                                  const std::function<UIIcon(int index)>& rowIcon) const {
+  constexpr int maxGridItems = buttonMenuColumns * buttonMenuRows;
+  const int itemsToDraw = std::min(buttonCount, maxGridItems);
+  if (itemsToDraw <= 0) {
+    return;
+  }
+
+  const int cellGap = MindfulMetrics::values.menuSpacing;
+  const int contentX = rect.x + MindfulMetrics::values.contentSidePadding;
+  const int contentW = rect.width - MindfulMetrics::values.contentSidePadding * 2;
+
+  // Anchor menu from bottom-up, and keep it above the button hints area.
+  const GfxRenderer::Orientation origOrientation = renderer.getOrientation();
+  renderer.setOrientation(GfxRenderer::Orientation::Portrait);
+  const int screenHeightPortrait = renderer.getScreenHeight();
+  renderer.setOrientation(origOrientation);
+
+  const int buttonHintsTopY = screenHeightPortrait - MindfulMetrics::values.buttonHintsHeight - cellGap;
+  const int menuBottomY = std::min(rect.y + rect.height, buttonHintsTopY);
+  const int availableMenuHeight = menuBottomY - rect.y;
+  if (availableMenuHeight <= 0) {
+    return;
+  }
+
+  const int lineHeight = renderer.getLineHeight(UI_12_FONT_ID);
+  const int iconAndTextHeight = iconSize + buttonMenuTextGap + lineHeight;
+  const int cellW = (contentW - (buttonMenuColumns - 1) * cellGap) / buttonMenuColumns;
+  const int cellH = iconAndTextHeight + 24;
+  if (cellW <= 0 || cellH <= 0) {
+    return;
+  }
+
+  const int gridW = cellW * buttonMenuColumns + (buttonMenuColumns - 1) * cellGap;
+  const int gridH = cellH * buttonMenuRows + (buttonMenuRows - 1) * cellGap;
+  if (gridH > availableMenuHeight) {
+    return;
+  }
+  const int gridX = contentX + (contentW - gridW) / 2;
+  const int gridY = menuBottomY - gridH;
+
+  for (int i = 0; i < itemsToDraw; ++i) {
+    const int col = i % buttonMenuColumns;
+    const int row = i / buttonMenuColumns;
+    Rect tileRect = Rect{gridX + col * (cellW + cellGap), gridY + row * (cellH + cellGap), cellW, cellH};
+
+    const bool selected = selectedIndex == i;
+    if (selected) {
+      renderer.fillRoundedRect(tileRect.x, tileRect.y, tileRect.width, tileRect.height, cornerRadius, Color::LightGray);
+    }
+    renderer.drawRoundedRect(tileRect.x, tileRect.y, tileRect.width, tileRect.height, 1, cornerRadius, true);
+
+    std::string labelStr = buttonLabel(i);
+    std::string truncatedLabel = renderer.truncatedText(UI_10_FONT_ID, labelStr.c_str(), tileRect.width - 8);
+    const int textWidth = renderer.getTextWidth(UI_10_FONT_ID, truncatedLabel.c_str());
+
+    const int blockTop = std::max(tileRect.y, tileRect.y + (tileRect.height - iconAndTextHeight) / 2);
+    const int iconX = tileRect.x + (tileRect.width - iconSize) / 2;
+    const int textX = tileRect.x + (tileRect.width - textWidth) / 2;
+    const int textY = blockTop + iconSize + buttonMenuTextGap;
+
+    if (rowIcon != nullptr) {
+      const UIIcon icon = rowIcon(i);
+      const uint8_t* iconBitmap = iconForName(icon);
+      if (iconBitmap != nullptr) {
+        const int iconY = blockTop + computeIconVisualCenterYOffset(iconBitmap, iconSize);
+        renderer.drawIcon(iconBitmap, iconX, iconY, iconSize, iconSize);
+      }
+    }
+
+    renderer.drawText(UI_10_FONT_ID, textX, textY, truncatedLabel.c_str(), true);
+  }
 }

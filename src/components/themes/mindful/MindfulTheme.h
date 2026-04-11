@@ -39,24 +39,23 @@ constexpr ThemeMetrics values = {.batteryWidth = 16,
 }
 
 class MindfulTheme : public BaseTheme {
-public:
-  void drawHeader(const GfxRenderer &renderer, Rect rect, const char *title,
-                  const char *subtitle) const override;
-  void drawSubHeader(const GfxRenderer &renderer, Rect rect, const char *label,
-                     const char *rightLabel = nullptr) const override;
+ public:
+  void drawHeader(const GfxRenderer& renderer, Rect rect, const char* title, const char* subtitle) const override;
+  void drawSubHeader(const GfxRenderer& renderer, Rect rect, const char* label,
+                     const char* rightLabel = nullptr) const override;
   void drawButtonHints(GfxRenderer& renderer, const char* btn1, const char* btn2, const char* btn3,
                        const char* btn4) const override;
   void drawSideButtonHints(const GfxRenderer& renderer, const char* topBtn, const char* bottomBtn) const override;
-  void drawTabBar(const GfxRenderer &renderer, Rect rect,
-                  const std::vector<TabInfo> &tabs,
+  void drawTabBar(const GfxRenderer& renderer, Rect rect, const std::vector<TabInfo>& tabs,
                   bool selected) const override;
-  void drawList(const GfxRenderer &renderer, Rect rect, int itemCount,
-                int selectedIndex,
-                const std::function<std::string(int index)> &rowTitle,
-                const std::function<std::string(int index)> &rowSubtitle,
-                const std::function<UIIcon(int index)> &rowIcon,
-                const std::function<std::string(int index)> &rowValue,
+  void drawList(const GfxRenderer& renderer, Rect rect, int itemCount, int selectedIndex,
+                const std::function<std::string(int index)>& rowTitle,
+                const std::function<std::string(int index)>& rowSubtitle,
+                const std::function<UIIcon(int index)>& rowIcon, const std::function<std::string(int index)>& rowValue,
                 bool highlightValue) const override;
   void drawKeyboardKey(const GfxRenderer& renderer, Rect rect, const char* label, const bool isSelected) const override;
+  void drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonCount, int selectedIndex,
+                      const std::function<std::string(int index)>& buttonLabel,
+                      const std::function<UIIcon(int index)>& rowIcon) const override;
   bool showsFileIcons() const override { return true; }
 };
