@@ -39,23 +39,8 @@ constexpr int buttonMenuColumns = 3;
 constexpr int buttonMenuRows = 2;
 constexpr int buttonMenuTextGap = 6;
 
-// Cover layout — centre cover dominates, sides slide kOverlap px behind it
-constexpr int kCenterCoverMaxW = MindfulTheme::kCenterCoverW;
-constexpr int kCenterCoverMaxH = MindfulTheme::kCenterCoverH;
-constexpr int kSideCoverMaxW = MindfulTheme::kSideCoverW;
-constexpr int kSideCoverMaxH = MindfulTheme::kSideCoverH;
-constexpr int kOverlap = 60;
-constexpr int kSelectionLineW = 3;  // thicker outline when centre cover is selected
-constexpr int kTitleFontId = UI_12_FONT_ID;
-constexpr int kDotSize = 8;         // px square dot
-constexpr int kDotGap = 6;          // px between dots
-constexpr int kCenterOutlineW = 4;  // white ring around centre cover
-constexpr int kThinOutlineW = 1;    // always-visible outline around centre cover
-constexpr float kFallbackCoverRatio = 0.6f;
-
+// Keep last selected carousel index so we only re-render when center item changes.
 int lastCarouselSelectorIndex = -1;
-int lastCenterCoverDrawX = 0;
-int lastCenterCoverDrawW = kCenterCoverMaxW;
 
 const uint8_t* iconForName(UIIcon icon) {
   switch (icon) {
@@ -151,8 +136,6 @@ int computeIconVisualCenterYOffset(const uint8_t* bitmap, int size) {
   return (boxCenterTimes2 - inkCenterTimes2) / 2;
 }
 }  // namespace
-
-void MindfulTheme::setPreRenderIndex(int idx) { lastCarouselSelectorIndex = idx; }
 
 void MindfulTheme::drawHeader(const GfxRenderer& renderer, Rect rect, const char* title, const char* subtitle) const {
   renderer.fillRect(rect.x, rect.y, rect.width, rect.height, false);
@@ -564,33 +547,20 @@ void MindfulTheme::drawButtonMenu(GfxRenderer& renderer, Rect rect, int buttonCo
     renderer.drawText(UI_10_FONT_ID, textX, textY, truncatedLabel.c_str(), true);
   }
 }
-void MindfulTheme::drawCarouselBorder(GfxRenderer& renderer, Rect coverRect, bool inCarouselRow) const {
-  if (!inCarouselRow) return;
-  const int screenW = renderer.getScreenWidth();
-  const int centerCoverH = std::min(kCenterCoverMaxH, coverRect.height);
-  const int centerX = (screenW - kCenterCoverMaxW) / 2;
-  int centerTileY = coverRect.y + 4;
-  if (centerTileY + centerCoverH > coverRect.y + coverRect.height) {
-    centerTileY = coverRect.y + coverRect.height - centerCoverH;
-  }
-  renderer.drawRect(centerX, centerTileY, kCenterCoverMaxW, centerCoverH, kSelectionLineW, true);
-}
-
-// ---------------------------------------------------------------------------
-// Carousel cover strip
-// ---------------------------------------------------------------------------
 void MindfulTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std::vector<RecentBook>& recentBooks,
                                        const int selectorIndex, bool& coverRendered, bool& coverBufferStored,
                                        bool& bufferRestored, std::function<bool()> storeCoverBuffer) const {
+  (void)bufferRestored;
+
   if (recentBooks.empty()) {
     // drawEmptyRecents(renderer, rect);
     return;
   }
 
   const int bookCount = static_cast<int>(recentBooks.size());
-  // When navigating the icon row, keep showing the last carousel position —
-  // falling back to 0 on first use (lastCarouselSelectorIndex == -1).
-  const bool inCarouselRow = (selectorIndex < bookCount);
+  const bool inCarouselRow = (selectorIndex >= 0 && selectorIndex < bookCount);
+
+  // Giữ lại vị trí carousel cuối cùng khi focus chuyển ra row khác.
   const int centerIdx =
       inCarouselRow ? selectorIndex : (lastCarouselSelectorIndex >= 0 ? lastCarouselSelectorIndex : 0);
 
@@ -600,167 +570,205 @@ void MindfulTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const s
   }
 
   const int screenW = renderer.getScreenWidth();
-  const int centerCoverH = std::min(kCenterCoverMaxH, rect.height);
-  const int sideCoverH = std::min(kSideCoverMaxH, centerCoverH);
-  int centerTileY = rect.y + MindfulMetrics::values.homeTopPadding;
-  if (centerTileY + centerCoverH > rect.y + rect.height) {
-    centerTileY = rect.y + rect.height - centerCoverH;
-  }
-  const int sideTileY = centerTileY + (centerCoverH - sideCoverH) / 2;
 
-  const int centerX = (screenW - kCenterCoverMaxW) / 2;
-  const int leftX = centerX - kSideCoverMaxW + kOverlap;
-  const int rightX = centerX + kCenterCoverMaxW - kOverlap;
+  // ---------------------------------------------------------------------
+  // Layout
+  // ---------------------------------------------------------------------
+  const int activeOuterW =
+      MindfulMetrics::recentCarouselActiveCoverWidth + MindfulMetrics::recentCarouselActiveBorderWidth * 2;
+  const int activeOuterH =
+      MindfulMetrics::recentCarouselActiveCoverHeight + MindfulMetrics::recentCarouselActiveBorderWidth * 2;
 
-  // Returns true if a book exists at bookIdx (cover image or placeholder drawn).
-  // Returns false only when the slot has no book — caller skips the border too.
-  auto drawCover = [&](int bookIdx, int x, int y, int maxW, int maxH, int* outDrawX = nullptr,
-                       int* outDrawW = nullptr) -> bool {
-    if (bookIdx < 0 || bookIdx >= bookCount) return false;
-    const RecentBook& book = recentBooks[bookIdx];
-    bool hasCover = false;
-    int coverDrawX = x;
-    int coverDrawW = maxW;
-    if (!book.coverBmpPath.empty()) {
-      FsFile file;
-      // HomeActivity generates thumbs by homeCoverHeight (e.g. thumb_400.bmp).
-      // Open that first, then fallback to slot-specific keys for compatibility.
-      const std::string thumbPathHome =
-          UITheme::getCoverThumbPath(book.coverBmpPath, MindfulMetrics::values.homeCoverHeight);
-      const std::string thumbPathSlot = UITheme::getCoverThumbPath(book.coverBmpPath, maxH);
-      const std::string thumbPathLegacy = UITheme::getCoverThumbPath(book.coverBmpPath, maxW, maxH);
+  const int activeOuterX = (screenW - activeOuterW) / 2;
+  const int activeOuterY = rect.y + MindfulMetrics::recentCarouselTopOffset;
 
-      bool opened = Storage.openFileForRead("HOME", thumbPathHome, file);
-      if (!opened && thumbPathSlot != thumbPathHome) {
-        opened = Storage.openFileForRead("HOME", thumbPathSlot, file);
-      }
-      if (!opened && thumbPathLegacy != thumbPathSlot) {
-        opened = Storage.openFileForRead("HOME", thumbPathLegacy, file);
-      }
+  const int activeContentX = activeOuterX + MindfulMetrics::recentCarouselActiveBorderWidth;
+  const int activeContentY = activeOuterY + MindfulMetrics::recentCarouselActiveBorderWidth;
 
-      if (opened) {
-        Bitmap bitmap(file);
-        if (bitmap.parseHeaders() == BmpReaderError::Ok && bitmap.getHeight() > 0) {
-          // Keep slot height fixed. Compute width from source ratio so narrow covers
-          // are not stretched; only wide covers are center-cropped horizontally.
-          const float bmpRatio = static_cast<float>(bitmap.getWidth()) / static_cast<float>(bitmap.getHeight());
-          const float tileRatio = static_cast<float>(maxW) / static_cast<float>(maxH);
-          if (bmpRatio > tileRatio) {
-            const float cropX = 1.0f - tileRatio / bmpRatio;
-            renderer.drawBitmap(bitmap, x, y, maxW, maxH, cropX, 0.0f);
-            coverDrawX = x;
-            coverDrawW = maxW;
-          } else {
-            const int fittedW = std::max(1, static_cast<int>(maxH * bmpRatio));
-            const int drawW = std::min(maxW, fittedW);
-            const int drawX = x + (maxW - drawW) / 2;
-            renderer.drawBitmap(bitmap, drawX, y, drawW, maxH, 0.0f, 0.0f);
-            coverDrawX = drawX;
-            coverDrawW = drawW;
-          }
-          hasCover = true;
-        }
-        file.close();
-      }
-    }
-    if (!hasCover) {
-      // Keep placeholder proportions consistent with generated cover thumbs:
-      // fixed height, width derived from ratio, centered in slot.
-      const int fallbackW = std::max(1, std::min(maxW, static_cast<int>(maxH * kFallbackCoverRatio)));
-      const int fallbackX = x + (maxW - fallbackW) / 2;
-      renderer.drawRect(fallbackX, y, fallbackW, maxH, true);
-      renderer.fillRect(fallbackX, y + maxH / 3, fallbackW, 2 * maxH / 3, true);
-      renderer.drawIcon(CoverIcon, fallbackX + fallbackW / 2 - 16, y + 8, 32, 32);
-      coverDrawX = fallbackX;
-      coverDrawW = fallbackW;
-    }
-    if (outDrawX) {
-      *outDrawX = coverDrawX;
-    }
-    if (outDrawW) {
-      *outDrawW = coverDrawW;
-    }
-    return true;
+  const int sideY = activeContentY +
+                    (MindfulMetrics::recentCarouselActiveCoverHeight - MindfulMetrics::recentCarouselSideCoverHeight) /
+                        2;
+  const int leftX = activeOuterX - MindfulMetrics::recentCarouselHorizontalGap - MindfulMetrics::recentCarouselSideCoverWidth;
+  const int rightX = activeOuterX + activeOuterW + MindfulMetrics::recentCarouselHorizontalGap;
+
+  const int titleY = activeOuterY + activeOuterH + MindfulMetrics::recentCarouselGapCoverToTitle;
+  const int authorY = titleY + MindfulMetrics::recentCarouselTitleHeight + MindfulMetrics::recentCarouselGapTitleToAuthor;
+  const int dotsY = authorY + MindfulMetrics::recentCarouselAuthorHeight + MindfulMetrics::recentCarouselGapAuthorToDots;
+
+  const int textSlotX = (screenW - MindfulMetrics::recentCarouselTextSlotWidth) / 2;
+
+  auto wrapIndex = [&](int idx) -> int {
+    if (bookCount <= 0) return 0;
+    while (idx < 0) idx += bookCount;
+    while (idx >= bookCount) idx -= bookCount;
+    return idx;
   };
 
-  int centerBorderX = lastCenterCoverDrawX;
-  int centerBorderW = lastCenterCoverDrawW;
-  if (centerBorderW <= 0) {
-    centerBorderX = centerX;
-    centerBorderW = kCenterCoverMaxW;
-  }
+  auto drawCenteredText = [&](int fontId, int y, const std::string& text) {
+    const std::string truncated = renderer.truncatedText(fontId, text.c_str(), MindfulMetrics::recentCarouselTextSlotWidth);
+
+    const int textW = renderer.getTextWidth(fontId, truncated.c_str());
+    const int textX = textSlotX + (MindfulMetrics::recentCarouselTextSlotWidth - textW) / 2;
+
+    renderer.drawText(fontId, textX, y, truncated.c_str(), true);
+  };
+
+  auto computeDotWindow = [&](int total, int current, int maxVisible, int& start, int& end) {
+    if (total <= maxVisible) {
+      start = 0;
+      end = total;
+      return;
+    }
+
+    int half = maxVisible / 2;
+    start = current - half;
+    end = start + maxVisible;
+
+    if (start < 0) {
+      start = 0;
+      end = maxVisible;
+    } else if (end > total) {
+      end = total;
+      start = total - maxVisible;
+    }
+  };
+
+  auto drawPlaceholder = [&](int x, int y, int w, int h) {
+    // clear slot first
+    renderer.fillRect(x, y, w, h, false);
+
+    // placeholder frame
+    renderer.drawRect(x, y, w, h, true);
+
+    // lower dark block
+    renderer.fillRect(x, y + h / 3, w, (2 * h) / 3, true);
+
+    // icon
+    renderer.drawIcon(CoverIcon, x + (w - MindfulMetrics::recentCarouselPlaceholderIconSize) / 2, y + 10,
+                      MindfulMetrics::recentCarouselPlaceholderIconSize,
+                      MindfulMetrics::recentCarouselPlaceholderIconSize);
+  };
+
+  // Draw cover into a fixed slot:
+  // - output slot position is fixed
+  // - height is fixed
+  // - width fills slot width if thumb exists
+  // - crop only on X when source is wider than target
+  // - if source is narrower, drawBitmap keeps white gutters because target tile is fixed
+  auto drawSlotCover = [&](const RecentBook& book, int x, int y, int w, int h) -> bool {
+    // Always clear slot first. This avoids stale pixels when cover ratios differ.
+    renderer.fillRect(x, y, w, h, false);
+
+    if (book.coverBmpPath.empty()) {
+      drawPlaceholder(x, y, w, h);
+      return false;
+    }
+
+    // Cover cache is generated as thumb_[HEIGHT].bmp in loadRecentCovers().
+    // Use the theme home cover height key and let renderer scale/crop per slot.
+    const std::string thumbPath = UITheme::getCoverThumbPath(book.coverBmpPath, MindfulMetrics::values.homeCoverHeight);
+
+    FsFile file;
+    if (!Storage.openFileForRead("HOME", thumbPath, file)) {
+      drawPlaceholder(x, y, w, h);
+      return false;
+    }
+
+    Bitmap bitmap(file);
+    const auto parseResult = bitmap.parseHeaders();
+    if (parseResult != BmpReaderError::Ok) {
+      file.close();
+      drawPlaceholder(x, y, w, h);
+      return false;
+    }
+
+    const float bmpW = static_cast<float>(bitmap.getWidth());
+    const float bmpH = static_cast<float>(bitmap.getHeight());
+    const float bmpRatio = (bmpH > 0.0f) ? (bmpW / bmpH) : 1.0f;
+    const float tileRatio = static_cast<float>(w) / static_cast<float>(h);
+
+    // Crop only if source is wider than target ratio.
+    const float cropX = (bmpRatio > tileRatio) ? (1.0f - (tileRatio / bmpRatio)) : 0.0f;
+
+    renderer.drawBitmap(bitmap, x, y, w, h, cropX, 0.0f);
+    file.close();
+    return true;
+  };
 
   if (!coverRendered) {
     lastCarouselSelectorIndex = centerIdx;
 
-    // Clear the entire cover tile to white so stale pixels from old positions
-    // don't persist (drawBitmap only sets black pixels, never clears).
+    // Clear the whole carousel region first.
     renderer.fillRect(rect.x, rect.y, rect.width, rect.height, false);
 
-    // Sides first so centre renders on top.
-    // Left side only when there are 3+ books; right side when there are 2+ books.
-    // Border only drawn if a cover image was actually rendered (no placeholders).
-    const int prevIdx = (centerIdx + bookCount - 1) % bookCount;
-    const int nextIdx = (centerIdx + 1) % bookCount;
-    if (bookCount >= 3) {
-      if (drawCover(prevIdx, leftX, sideTileY, kSideCoverMaxW, sideCoverH))
-        renderer.drawRect(leftX, sideTileY, kSideCoverMaxW, sideCoverH, true);
-    }
+    const int prevIdx = wrapIndex(centerIdx - 1);
+    const int nextIdx = wrapIndex(centerIdx + 1);
+
+    // Left preview
     if (bookCount >= 2) {
-      if (drawCover(nextIdx, rightX, sideTileY, kSideCoverMaxW, sideCoverH))
-        renderer.drawRect(rightX, sideTileY, kSideCoverMaxW, sideCoverH, true);
+      drawSlotCover(recentBooks[prevIdx], leftX, sideY, MindfulMetrics::recentCarouselSideCoverWidth,
+                    MindfulMetrics::recentCarouselSideCoverHeight);
     }
 
-    // Clear a white outline ring around the centre cover, then draw the cover
-    // inside it. The white ring always separates the centre from the sides.
-    renderer.fillRect(centerBorderX - kCenterOutlineW, centerTileY - kCenterOutlineW,
-                      centerBorderW + 2 * kCenterOutlineW, centerCoverH + 2 * kCenterOutlineW, false);
-    drawCover(centerIdx, centerX, centerTileY, kCenterCoverMaxW, centerCoverH, &centerBorderX, &centerBorderW);
-
-    // Keep metadata inside cover rect to avoid drawing over menu area.
-    const int titleLineH = renderer.getLineHeight(kTitleFontId);
-    const int textBandHeight = kDotSize + 6 + titleLineH + 2 + titleLineH;
-    const int textBandPreferredTop = centerTileY + centerCoverH + 8;
-    const int textBandMaxTop = rect.y + rect.height - textBandHeight - 4;
-    const int textBandTop = std::max(rect.y + 4, std::min(textBandPreferredTop, textBandMaxTop));
-    renderer.fillRect(centerX, textBandTop - 2, kCenterCoverMaxW, textBandHeight + 4, false);
-
-    // Dots — centered in the text band.
-    const int dotsY = textBandTop;
-    const int totalDotsW = bookCount * kDotSize + (bookCount - 1) * kDotGap;
-    int dotX = centerX + (kCenterCoverMaxW - totalDotsW) / 2;
-    for (int i = 0; i < bookCount; ++i) {
-      if (i == centerIdx)
-        renderer.fillRect(dotX, dotsY, kDotSize, kDotSize, true);
-      else
-        renderer.drawRect(dotX, dotsY, kDotSize, kDotSize, true);
-      dotX += kDotSize + kDotGap;
+    // Right preview
+    if (bookCount >= 3) {
+      drawSlotCover(recentBooks[nextIdx], rightX, sideY, MindfulMetrics::recentCarouselSideCoverWidth,
+                    MindfulMetrics::recentCarouselSideCoverHeight);
+    } else if (bookCount == 2) {
+      drawSlotCover(recentBooks[nextIdx], rightX, sideY, MindfulMetrics::recentCarouselSideCoverWidth,
+                    MindfulMetrics::recentCarouselSideCoverHeight);
     }
 
-    // Title then author below dots (both constrained to the text band).
-    const int titleY = dotsY + kDotSize + 6;
-    const std::string titleTrunc =
-        renderer.truncatedText(kTitleFontId, recentBooks[centerIdx].title.c_str(), kCenterCoverMaxW);
-    const int titleW = renderer.getTextWidth(kTitleFontId, titleTrunc.c_str());
-    renderer.drawText(kTitleFontId, centerX + (kCenterCoverMaxW - titleW) / 2, titleY, titleTrunc.c_str(), true);
+    // Active outer box area: clear first so border is always crisp.
+    renderer.fillRect(activeOuterX, activeOuterY, activeOuterW, activeOuterH, false);
 
-    const int authorY = titleY + titleLineH + 2;
-    const std::string authorTrunc =
-        renderer.truncatedText(UI_10_FONT_ID, recentBooks[centerIdx].author.c_str(), kCenterCoverMaxW);
-    const int authorW = renderer.getTextWidth(UI_10_FONT_ID, authorTrunc.c_str());
-    renderer.drawText(UI_10_FONT_ID, centerX + (kCenterCoverMaxW - authorW) / 2, authorY, authorTrunc.c_str(), true);
+    // Active cover content
+    drawSlotCover(recentBooks[centerIdx], activeContentX, activeContentY, MindfulMetrics::recentCarouselActiveCoverWidth,
+                  MindfulMetrics::recentCarouselActiveCoverHeight);
 
-    coverBufferStored = storeCoverBuffer();
+    // Active border (exactly 2px)
+    renderer.drawRect(activeOuterX, activeOuterY, activeOuterW, activeOuterH, MindfulMetrics::recentCarouselActiveBorderWidth, true);
+
+    // Clear metadata area
+    renderer.fillRect(textSlotX, titleY, MindfulMetrics::recentCarouselTextSlotWidth,
+                      MindfulMetrics::recentCarouselTitleHeight, false);
+    renderer.fillRect(textSlotX, authorY, MindfulMetrics::recentCarouselTextSlotWidth,
+                      MindfulMetrics::recentCarouselAuthorHeight, false);
+
+    // Title then author, both 1 line
+    drawCenteredText(UI_12_FONT_ID, titleY, recentBooks[centerIdx].title);
+    drawCenteredText(UI_10_FONT_ID, authorY, recentBooks[centerIdx].author);
+
+    // Dots: windowed, max 5 visible
+    renderer.fillRect(textSlotX, dotsY, MindfulMetrics::recentCarouselTextSlotWidth, MindfulMetrics::recentCarouselDotSize,
+                      false);
+
+    int dotStart = 0;
+    int dotEnd = 0;
+    computeDotWindow(bookCount, centerIdx, MindfulMetrics::recentCarouselMaxVisibleDots, dotStart, dotEnd);
+
+    const int visibleDots = dotEnd - dotStart;
+    const int dotsTotalW = visibleDots * MindfulMetrics::recentCarouselDotSize +
+                           (visibleDots - 1) * MindfulMetrics::recentCarouselDotGap;
+    int dotX = (screenW - dotsTotalW) / 2;
+
+    for (int i = dotStart; i < dotEnd; ++i) {
+      if (i == centerIdx) {
+        renderer.fillRect(dotX, dotsY, MindfulMetrics::recentCarouselDotSize, MindfulMetrics::recentCarouselDotSize,
+                          true);
+      } else {
+        renderer.drawRect(dotX, dotsY, MindfulMetrics::recentCarouselDotSize, MindfulMetrics::recentCarouselDotSize,
+                          true);
+      }
+      dotX += MindfulMetrics::recentCarouselDotSize + MindfulMetrics::recentCarouselDotGap;
+    }
+
+    coverBufferStored = storeCoverBuffer ? storeCoverBuffer() : false;
     coverRendered = coverBufferStored;
-    lastCenterCoverDrawX = centerBorderX;
-    lastCenterCoverDrawW = centerBorderW;
   }
 
-  // Always outline the centre cover at its own edge (white ring sits outside the black line);
-  // thicker when the carousel row is active
-  const int outlineW = inCarouselRow ? kSelectionLineW : kThinOutlineW;
-  renderer.drawRect(centerBorderX, centerTileY, centerBorderW, centerCoverH, outlineW, true);
-
-  // Debug alignment aid: bottom boundary of recent-cover area.
-  renderer.drawLine(rect.x, rect.y + rect.height - 1, rect.x + rect.width - 1, rect.y + rect.height - 1, true);
+  // Nếu bạn muốn border active luôn hiện kể cả sau restore buffer,
+  // giữ lại dòng này. Nó làm active state sắc nét hơn.
+  renderer.drawRect(activeOuterX, activeOuterY, activeOuterW, activeOuterH,
+                    MindfulMetrics::recentCarouselActiveBorderWidth, true);
 }

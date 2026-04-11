@@ -21,7 +21,7 @@ constexpr ThemeMetrics values = {.batteryWidth = 16,
                                  .tabBarHeight = 40,
                                  .scrollBarWidth = 4,
                                  .scrollBarRightOffset = 5,
-                                 .homeTopPadding = 20,
+                                 .homeTopPadding = 25,
                                  .homeCoverHeight = 400,
                                  .homeCoverTileHeight = 500,
                                  .homeRecentBooksCount = 3,
@@ -36,25 +36,35 @@ constexpr ThemeMetrics values = {.batteryWidth = 16,
                                  .keyboardKeySpacing = 1,
                                  .keyboardBottomAligned = true,
                                  .keyboardCenteredText = true};
+
+// Recent carousel metrics
+static constexpr int recentCarouselActiveCoverHeight = values.homeCoverHeight;
+static constexpr int recentCarouselActiveCoverWidth = 268;
+static constexpr int recentCarouselActiveBorderWidth = 2;
+static constexpr int recentCarouselSideCoverHeight = 280;
+static constexpr int recentCarouselSideCoverWidth = 188;
+static constexpr int recentCarouselHorizontalGap = 16;
+static constexpr int recentCarouselTopOffset = 10;
+static constexpr int recentCarouselTextSlotWidth = 320;
+static constexpr int recentCarouselTitleHeight = 24;
+static constexpr int recentCarouselAuthorHeight = 24;
+static constexpr int recentCarouselGapCoverToTitle = 12;
+static constexpr int recentCarouselGapTitleToAuthor = 4;
+static constexpr int recentCarouselGapAuthorToDots = 12;
+static constexpr int recentCarouselDotSize = 8;
+static constexpr int recentCarouselDotGap = 10;
+static constexpr int recentCarouselMaxVisibleDots = 5;
+static constexpr int recentCarouselPlaceholderIconSize = 32;
 }
 
 class MindfulTheme : public BaseTheme {
  public:
-  // Exact pixel dimensions for each carousel slot — used for exact-size thumbnail generation
-  static constexpr int kCenterCoverW = 340;
-  static constexpr int kCenterCoverH = MindfulMetrics::values.homeCoverHeight;
-  static constexpr int kSideCoverW = 200;
-  static constexpr int kSideCoverH = MindfulMetrics::values.homeCoverHeight - 60;  // 190
-
-  static void setPreRenderIndex(int idx);
-
   void drawHeader(const GfxRenderer& renderer, Rect rect, const char* title, const char* subtitle) const override;
   void drawSubHeader(const GfxRenderer& renderer, Rect rect, const char* label,
                      const char* rightLabel = nullptr) const override;
   void drawRecentBookCover(GfxRenderer& renderer, Rect rect, const std::vector<RecentBook>& recentBooks,
                            const int selectorIndex, bool& coverRendered, bool& coverBufferStored, bool& bufferRestored,
                            std::function<bool()> storeCoverBuffer) const override;
-  void drawCarouselBorder(GfxRenderer& renderer, Rect coverRect, bool inCarouselRow) const override;
   void drawButtonHints(GfxRenderer& renderer, const char* btn1, const char* btn2, const char* btn3,
                        const char* btn4) const override;
   void drawSideButtonHints(const GfxRenderer& renderer, const char* topBtn, const char* bottomBtn) const override;
