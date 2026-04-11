@@ -26,7 +26,7 @@ import sys
 import os
 import re
 from pathlib import Path
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 
 
 # ---------------------------------------------------------------------------
@@ -103,8 +103,48 @@ def parse_yaml_file(filepath: str) -> Dict[str, str]:
 # Load all languages from a directory of YAML files
 # ---------------------------------------------------------------------------
 
+def _parse_language_filter(raw: str) -> List[str]:
+    """Parse comma-separated language codes, normalize to upper-case, remove duplicates."""
+    if not raw:
+        return []
+    result: List[str] = []
+    seen = set()
+    for part in raw.split(","):
+        code = part.strip().upper()
+        if not code:
+            continue
+        if code not in seen:
+            seen.add(code)
+            result.append(code)
+    return result
+
+
+def _resolve_language_filter() -> List[str]:
+    """
+    Resolve language filter from:
+      1) PlatformIO custom option: custom_i18n_languages
+      2) Environment variable: CROSSPOINT_I18N_LANGS
+    Environment variable has higher priority.
+    """
+    requested_raw = ""
+
+    # PlatformIO context (pre: script)
+    try:
+        Import("env")  # noqa: F821  # type: ignore[name-defined]
+        requested_raw = env.GetProjectOption("custom_i18n_languages", "").strip()  # noqa: F821  # type: ignore[name-defined]
+    except NameError:
+        pass
+
+    env_override = os.getenv("CROSSPOINT_I18N_LANGS", "").strip()
+    if env_override:
+        requested_raw = env_override
+
+    return _parse_language_filter(requested_raw)
+
+
 def load_translations(
     translations_dir: str,
+    included_language_codes: Optional[List[str]] = None,
 ) -> Tuple[List[str], List[str], List[str], Dict[str, List[str]]]:
     """
     Read every YAML file in *translations_dir* and return:
@@ -151,6 +191,34 @@ def load_translations(
         return (1, order_int, fname)
 
     ordered_files = sorted(parsed, key=sort_key)
+
+    # Optional language filtering for firmware size optimization.
+    if included_language_codes:
+        requested = [c.upper() for c in included_language_codes]
+        if "EN" not in requested:
+            requested = ["EN"] + requested
+
+        file_code_map: Dict[str, str] = {
+            fname: parsed[fname].get("_language_code", "").upper()
+            for fname in ordered_files
+        }
+        available_codes = {code for code in file_code_map.values() if code}
+        missing_codes = [code for code in requested if code not in available_codes]
+        if missing_codes:
+            raise ValueError(
+                "Requested language code(s) not found: "
+                + ", ".join(missing_codes)
+                + f". Available: {', '.join(sorted(available_codes))}"
+            )
+
+        requested_set = set(requested)
+        ordered_files = [
+            fname for fname in ordered_files if file_code_map.get(fname) in requested_set
+        ]
+        print(
+            "Language filter enabled: "
+            + ", ".join(file_code_map[f] for f in ordered_files)
+        )
 
     # Extract metadata
     language_codes: List[str] = []
@@ -612,11 +680,15 @@ def main(translations_dir=None, output_dir=None) -> None:
 
     print(f"Reading translations from: {translations_dir}")
     print(f"Output directory: {output_dir}")
+    included_language_codes = _resolve_language_filter()
+    if included_language_codes:
+        print(f"Requested language filter: {', '.join(included_language_codes)}")
     print()
 
     try:
         languages, language_names, string_keys, translations = load_translations(
-            translations_dir
+            translations_dir,
+            included_language_codes,
         )
 
         out = Path(output_dir)

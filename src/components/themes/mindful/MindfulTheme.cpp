@@ -5,8 +5,10 @@
 #include <I18n.h>
 
 #include <algorithm>
+#include <cstdio>
 #include <cstring>
 
+#include "BookStats.h"
 #include "RecentBooksStore.h"
 #include "components/UITheme.h"
 #include "components/icons/book.h"
@@ -591,9 +593,17 @@ void MindfulTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const s
   const int leftX = activeOuterX - MindfulMetrics::recentCarouselHorizontalGap - MindfulMetrics::recentCarouselSideCoverWidth;
   const int rightX = activeOuterX + activeOuterW + MindfulMetrics::recentCarouselHorizontalGap;
 
-  const int titleY = activeOuterY + activeOuterH + MindfulMetrics::recentCarouselGapCoverToTitle;
+  const int progressY = activeOuterY + activeOuterH + MindfulMetrics::recentCarouselGapCoverToProgress;
+  const int titleY =
+      progressY + MindfulMetrics::recentCarouselProgressBarHeight + MindfulMetrics::recentCarouselGapProgressToTitle;
   const int authorY = titleY + MindfulMetrics::recentCarouselTitleHeight + MindfulMetrics::recentCarouselGapTitleToAuthor;
-  const int dotsY = authorY + MindfulMetrics::recentCarouselAuthorHeight + MindfulMetrics::recentCarouselGapAuthorToDots;
+  const int statsLineH = renderer.getLineHeight(SMALL_FONT_ID);
+  const int statsYRaw =
+      authorY + MindfulMetrics::recentCarouselAuthorHeight + MindfulMetrics::recentCarouselGapAuthorToProgress;
+  const int maxStatsY =
+      rect.y + rect.height - MindfulMetrics::recentCarouselGapStatsToDots - statsLineH - MindfulMetrics::recentCarouselDotSize;
+  const int statsY = std::min(statsYRaw, maxStatsY);
+  const int dotsY = statsY + statsLineH + MindfulMetrics::recentCarouselGapStatsToDots;
 
   const int textSlotX = (screenW - MindfulMetrics::recentCarouselTextSlotWidth) / 2;
 
@@ -647,6 +657,78 @@ void MindfulTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const s
     renderer.drawIcon(CoverIcon, x + (w - MindfulMetrics::recentCarouselPlaceholderIconSize) / 2, y + 10,
                       MindfulMetrics::recentCarouselPlaceholderIconSize,
                       MindfulMetrics::recentCarouselPlaceholderIconSize);
+  };
+
+  auto drawCenteredProgressBar = [&](int y, uint8_t progressPercent) {
+    const int clampedProgress = std::clamp(static_cast<int>(progressPercent), 0, 100);
+    const int barW = MindfulMetrics::recentCarouselProgressBarWidth;
+    const int barH = MindfulMetrics::recentCarouselProgressBarHeight;
+    const int barX = (screenW - barW) / 2;
+
+    renderer.fillRect(barX, y, barW, barH, false);
+    renderer.drawRect(barX, y, barW, barH, true);
+
+    const int fillW = ((barW - 2) * clampedProgress) / 100;
+    if (fillW > 0) {
+      renderer.fillRect(barX + 1, y + 1, fillW, barH - 2, true);
+    }
+  };
+
+  auto formatDurationHHMM = [&](uint32_t totalSeconds, bool known, char* out, size_t outSize) {
+    if (!known) {
+      snprintf(out, outSize, "--:--");
+      return;
+    }
+
+    const uint32_t totalMinutes = (totalSeconds + 30) / 60;  // rounded minutes
+    uint32_t hours = totalMinutes / 60;
+    const uint32_t minutes = totalMinutes % 60;
+    if (hours > 99) {
+      hours = 99;
+    }
+
+    snprintf(out, outSize, "%02lu:%02lu", static_cast<unsigned long>(hours), static_cast<unsigned long>(minutes));
+  };
+
+  auto drawReadingTimeStats = [&](int y, const RecentBook& book) {
+    const BookStats::BookEntry* stats = BOOK_STATS.getBook(book.path.c_str());
+    const uint32_t totalReadSeconds = (stats != nullptr) ? stats->totalSeconds : 0;
+    const int progress = std::clamp(static_cast<int>(book.progressPercent), 0, 100);
+
+    uint32_t remainingSeconds = 0;
+    bool remainingKnown = false;
+    if (progress >= 100) {
+      remainingKnown = true;
+      remainingSeconds = 0;
+    } else if (progress > 0 && totalReadSeconds > 0) {
+      const uint64_t estimatedTotalSeconds = (static_cast<uint64_t>(totalReadSeconds) * 100ULL) / progress;
+      if (estimatedTotalSeconds > totalReadSeconds) {
+        const uint64_t remaining64 = estimatedTotalSeconds - totalReadSeconds;
+        remainingSeconds = remaining64 > UINT32_MAX ? UINT32_MAX : static_cast<uint32_t>(remaining64);
+      }
+      remainingKnown = true;
+    }
+
+    char readValue[8];
+    char remainingValue[8];
+    formatDurationHHMM(totalReadSeconds, totalReadSeconds > 0, readValue, sizeof(readValue));
+    formatDurationHHMM(remainingSeconds, remainingKnown, remainingValue, sizeof(remainingValue));
+
+    char leftLabel[40];
+    char rightLabel[40];
+    snprintf(leftLabel, sizeof(leftLabel), "%s %s", tr(STR_READ_SHORT), readValue);
+    snprintf(rightLabel, sizeof(rightLabel), "%s %s", tr(STR_TIME_ESTIMATE), remainingValue);
+
+    const int totalW = MindfulMetrics::recentCarouselTextSlotWidth;
+    renderer.fillRect(textSlotX, y, totalW, statsLineH, false);
+
+    // Render as one continuous line: left label immediately followed by right label.
+    char combinedLabel[96];
+    snprintf(combinedLabel, sizeof(combinedLabel), "%s · %s", leftLabel, rightLabel);
+    const std::string combinedText = renderer.truncatedText(SMALL_FONT_ID, combinedLabel, totalW);
+    const int combinedW = renderer.getTextWidth(SMALL_FONT_ID, combinedText.c_str());
+    const int combinedX = textSlotX + std::max(0, (totalW - combinedW) / 2);
+    renderer.drawText(SMALL_FONT_ID, combinedX, y, combinedText.c_str(), true);
   };
 
   // Draw cover into a fixed slot:
@@ -708,15 +790,24 @@ void MindfulTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const s
     if (bookCount >= 2) {
       drawSlotCover(recentBooks[prevIdx], leftX, sideY, MindfulMetrics::recentCarouselSideCoverWidth,
                     MindfulMetrics::recentCarouselSideCoverHeight);
+      renderer.drawRect(leftX, sideY, MindfulMetrics::recentCarouselSideCoverWidth,
+                        MindfulMetrics::recentCarouselSideCoverHeight,
+                        MindfulMetrics::recentCarouselInactiveBorderWidth, true);
     }
 
     // Right preview
     if (bookCount >= 3) {
       drawSlotCover(recentBooks[nextIdx], rightX, sideY, MindfulMetrics::recentCarouselSideCoverWidth,
                     MindfulMetrics::recentCarouselSideCoverHeight);
+      renderer.drawRect(rightX, sideY, MindfulMetrics::recentCarouselSideCoverWidth,
+                        MindfulMetrics::recentCarouselSideCoverHeight,
+                        MindfulMetrics::recentCarouselInactiveBorderWidth, true);
     } else if (bookCount == 2) {
       drawSlotCover(recentBooks[nextIdx], rightX, sideY, MindfulMetrics::recentCarouselSideCoverWidth,
                     MindfulMetrics::recentCarouselSideCoverHeight);
+      renderer.drawRect(rightX, sideY, MindfulMetrics::recentCarouselSideCoverWidth,
+                        MindfulMetrics::recentCarouselSideCoverHeight,
+                        MindfulMetrics::recentCarouselInactiveBorderWidth, true);
     }
 
     // Active outer box area: clear first so border is always crisp.
@@ -766,6 +857,10 @@ void MindfulTheme::drawRecentBookCover(GfxRenderer& renderer, Rect rect, const s
     coverBufferStored = storeCoverBuffer ? storeCoverBuffer() : false;
     coverRendered = coverBufferStored;
   }
+
+  // Keep progress + timing text always fresh even when main cover content is restored from buffer.
+  drawCenteredProgressBar(progressY, recentBooks[centerIdx].progressPercent);
+  drawReadingTimeStats(statsY, recentBooks[centerIdx]);
 
   // Nếu bạn muốn border active luôn hiện kể cả sau restore buffer,
   // giữ lại dòng này. Nó làm active state sắc nét hơn.

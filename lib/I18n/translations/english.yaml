@@ -303,6 +303,7 @@ STR_SORT_SIZE_ASC: "Size Small-Large"
 STR_SORT_SIZE_DESC: "Size Large-Small"
 STR_TIME_ESTIMATE: "Time Estimate"
 STR_SESSION_TIMER: "Session Timer"
+STR_READ_SHORT: "Read"
 STR_SHOW_FREE_HEAP: "Show Free RAM"
 
 STR_DESC_CUSTOMISE_STATUS_BAR: "Choose footer indicators."
