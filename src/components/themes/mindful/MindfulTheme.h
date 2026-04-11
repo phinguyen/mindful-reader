@@ -31,11 +31,11 @@ constexpr ThemeMetrics values = {.batteryWidth = 16,
                                  .progressBarMarginTop = 1,
                                  .statusBarHorizontalMargin = 5,
                                  .statusBarVerticalMargin = 19,
-                                 .keyboardKeyWidth = 22,
-                                 .keyboardKeyHeight = 30,
-                                 .keyboardKeySpacing = 10,
-                                 .keyboardBottomAligned = false,
-                                 .keyboardCenteredText = false};
+                                 .keyboardKeyWidth = 33,
+                                 .keyboardKeyHeight = 50,
+                                 .keyboardKeySpacing = 1,
+                                 .keyboardBottomAligned = true,
+                                 .keyboardCenteredText = true};
 }
 
 class MindfulTheme : public BaseTheme {
@@ -57,5 +57,6 @@ public:
                 const std::function<UIIcon(int index)> &rowIcon,
                 const std::function<std::string(int index)> &rowValue,
                 bool highlightValue) const override;
+  void drawKeyboardKey(const GfxRenderer& renderer, Rect rect, const char* label, const bool isSelected) const override;
   bool showsFileIcons() const override { return true; }
 };

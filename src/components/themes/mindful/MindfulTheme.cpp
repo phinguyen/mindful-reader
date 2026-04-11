@@ -1,15 +1,16 @@
 #include "MindfulTheme.h"
 
 #include <GfxRenderer.h>
-#include <I18n.h>
 #include <HalGPIO.h>
-#include <Logging.h>
+#include <I18n.h>
+
 #include <algorithm>
 #include <cstring>
 
 #include "components/UITheme.h"
 #include "components/icons/book.h"
 #include "components/icons/book24.h"
+#include "components/icons/check.h"
 #include "components/icons/cover.h"
 #include "components/icons/down24.h"
 #include "components/icons/file24.h"
@@ -18,12 +19,12 @@
 #include "components/icons/hotspot.h"
 #include "components/icons/image.h"
 #include "components/icons/image24.h"
-#include "components/icons/library.h"
 #include "components/icons/left24.h"
+#include "components/icons/library.h"
 #include "components/icons/recent.h"
+#include "components/icons/right24.h"
 #include "components/icons/select24.h"
 #include "components/icons/settings2.h"
-#include "components/icons/right24.h"
 #include "components/icons/text.h"
 #include "components/icons/text24.h"
 #include "components/icons/transfer.h"
@@ -83,39 +84,15 @@ const uint8_t* iconForButtonLabel(const char* label) {
   if (std::strcmp(label, tr(STR_DIR_RIGHT)) == 0) {
     return Right24Icon;
   }
-  if (std::strcmp(label, tr(STR_SELECT)) == 0 || std::strcmp(label, tr(STR_CONFIRM)) == 0 || std::strcmp(label, tr(STR_OPEN)) == 0) {
+  if (std::strcmp(label, tr(STR_SELECT)) == 0 || std::strcmp(label, tr(STR_CONFIRM)) == 0 ||
+      std::strcmp(label, tr(STR_OPEN)) == 0) {
     return Select24Icon;
   }
   if (std::strcmp(label, tr(STR_BACK)) == 0) {
     return Left24Icon;
   }
-
-  return nullptr;
-}
-
-const char* buttonIconNameForLabel(const char* label) {
-  if (label == nullptr || label[0] == '\0') {
-    return nullptr;
-  }
-
-  if (std::strcmp(label, tr(STR_DIR_UP)) == 0) {
-    return "up";
-  }
-  if (std::strcmp(label, tr(STR_DIR_RIGHT)) == 0) {
-    return "right";
-  }
-  if (std::strcmp(label, tr(STR_DIR_DOWN)) == 0) {
-    return "down";
-  }
-  if (std::strcmp(label, tr(STR_DIR_LEFT)) == 0) {
-    return "left";
-  }
-  if (std::strcmp(label, tr(STR_SELECT)) == 0 || std::strcmp(label, tr(STR_CONFIRM)) == 0 ||
-      std::strcmp(label, tr(STR_OPEN)) == 0) {
-    return "select";
-  }
-  if (std::strcmp(label, tr(STR_BACK)) == 0) {
-    return "left";
+  if (std::strcmp(label, tr(STR_CONFIRM)) == 0 || std::strcmp(label, tr(STR_DONE)) == 0) {
+    return CheckIcon;
   }
 
   return nullptr;
@@ -382,7 +359,7 @@ void MindfulTheme::drawList(const GfxRenderer& renderer, Rect rect, int itemCoun
 }
 
 void MindfulTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, const char* btn2, const char* btn3,
-                                const char* btn4) const {
+                                   const char* btn4) const {
   const GfxRenderer::Orientation orig_orientation = renderer.getOrientation();
   renderer.setOrientation(GfxRenderer::Orientation::Portrait);
 
@@ -403,9 +380,6 @@ void MindfulTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, cons
   for (int i = 0; i < 4; i++) {
     const int x = buttonPositions[i];
     const char* label = labels[i];
-    const char* iconName = buttonIconNameForLabel(label);
-    LOG_DBG("THEME", "drawButtonHints slot=%d label='%s' icon=%s", i + 1, label != nullptr ? label : "(null)",
-            iconName != nullptr ? iconName : "text");
     if (label != nullptr && label[0] != '\0') {
       renderer.fillRoundedRect(x, fullButtonTop, buttonWidth, buttonHeight, cornerRadius, Color::White);
       renderer.drawRoundedRect(x, fullButtonTop, buttonWidth, buttonHeight, 1, cornerRadius, true, true, false, false,
@@ -433,7 +407,7 @@ void MindfulTheme::drawButtonHints(GfxRenderer& renderer, const char* btn1, cons
 void MindfulTheme::drawSideButtonHints(const GfxRenderer& renderer, const char* topBtn, const char* bottomBtn) const {
   const int screenWidth = renderer.getScreenWidth();
   constexpr int buttonWidth = MindfulMetrics::values.sideButtonHintsWidth;  // Width on screen (height when rotated)
-  constexpr int buttonHeight = 78;                                       // Height on screen (width when rotated)
+  constexpr int buttonHeight = 78;                                          // Height on screen (width when rotated)
   constexpr int buttonMargin = 0;
   constexpr int iconSize = 24;
 
@@ -442,8 +416,6 @@ void MindfulTheme::drawSideButtonHints(const GfxRenderer& renderer, const char* 
     constexpr int x3ButtonY = 155;
 
     if (topBtn != nullptr && topBtn[0] != '\0') {
-      LOG_DBG("THEME", "drawSideButtonHints top label='%s' icon=%s", topBtn,
-              std::strcmp(topBtn, ">") == 0 ? "right" : "left");
       renderer.drawRoundedRect(buttonMargin, x3ButtonY, buttonWidth, buttonHeight, 1, cornerRadius, false, true, false,
                                true, true);
       const uint8_t* icon = (std::strcmp(topBtn, ">") == 0) ? Right24Icon : Left24Icon;
@@ -454,8 +426,6 @@ void MindfulTheme::drawSideButtonHints(const GfxRenderer& renderer, const char* 
 
     if (bottomBtn != nullptr && bottomBtn[0] != '\0') {
       const int rightX = screenWidth - buttonWidth;
-      LOG_DBG("THEME", "drawSideButtonHints bottom label='%s' icon=%s", bottomBtn,
-              std::strcmp(bottomBtn, ">") == 0 ? "up" : "down");
       renderer.drawRoundedRect(rightX, x3ButtonY, buttonWidth, buttonHeight, 1, cornerRadius, true, false, true, false,
                                true);
       const uint8_t* icon = (std::strcmp(bottomBtn, ">") == 0) ? Up24Icon : Down24Icon;
@@ -469,15 +439,11 @@ void MindfulTheme::drawSideButtonHints(const GfxRenderer& renderer, const char* 
     const int x = screenWidth - buttonWidth;
 
     if (topBtn != nullptr && topBtn[0] != '\0') {
-      LOG_DBG("THEME", "drawSideButtonHints top label='%s' icon=%s", topBtn,
-              std::strcmp(topBtn, ">") == 0 ? "up" : "down");
       renderer.drawRoundedRect(x, topHintButtonY, buttonWidth, buttonHeight, 1, cornerRadius, true, false, true, false,
                                true);
     }
 
     if (bottomBtn != nullptr && bottomBtn[0] != '\0') {
-      LOG_DBG("THEME", "drawSideButtonHints bottom label='%s' icon=%s", bottomBtn,
-              std::strcmp(bottomBtn, ">") == 0 ? "up" : "down");
       renderer.drawRoundedRect(x, topHintButtonY + buttonHeight + 5, buttonWidth, buttonHeight, 1, cornerRadius, true,
                                false, true, false, true);
     }
@@ -492,4 +458,16 @@ void MindfulTheme::drawSideButtonHints(const GfxRenderer& renderer, const char* 
       }
     }
   }
+}
+
+void MindfulTheme::drawKeyboardKey(const GfxRenderer& renderer, Rect rect, const char* label,
+                                   const bool isSelected) const {
+  if (isSelected) {
+    renderer.fillRoundedRect(rect.x, rect.y, rect.width, rect.height, cornerRadius, Color::Black);
+  }
+
+  const int textWidth = renderer.getTextWidth(UI_12_FONT_ID, label);
+  const int textX = rect.x + (rect.width - textWidth) / 2;
+  const int textY = rect.y + (rect.height - renderer.getLineHeight(UI_12_FONT_ID)) / 2;
+  renderer.drawText(UI_12_FONT_ID, textX, textY, label, !isSelected);
 }
