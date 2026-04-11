@@ -142,5 +142,6 @@ class BaseTheme {
   virtual void drawHelpText(const GfxRenderer& renderer, Rect rect, const char* label) const;
   virtual void drawTextField(const GfxRenderer& renderer, Rect rect, const int textWidth) const;
   virtual void drawKeyboardKey(const GfxRenderer& renderer, Rect rect, const char* label, const bool isSelected) const;
+  virtual void drawCarouselBorder(GfxRenderer& renderer, Rect coverRect, bool inCarouselRow) const {}
   virtual bool showsFileIcons() const { return false; }
 };
