@@ -38,8 +38,8 @@ constexpr ThemeMetrics values = {.batteryWidth = 16,
                                  .keyboardCenteredText = true};
 
 // Recent carousel metrics
-static constexpr int recentCarouselActiveCoverHeight = values.homeCoverHeight;
-static constexpr int recentCarouselActiveCoverWidth = 268;
+static constexpr int recentCarouselActiveCoverHeight = 360;
+static constexpr int recentCarouselActiveCoverWidth = (recentCarouselActiveCoverHeight * 2) / 3;
 static constexpr int recentCarouselActiveBorderWidth = 2;
 static constexpr int recentCarouselSideCoverHeight = 280;
 static constexpr int recentCarouselSideCoverWidth = 188;
